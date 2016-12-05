@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 import base64
 import urllib
+from datetime import datetime
 
 import requests
 import rsa
 from Crypto.Hash import SHA
 from Crypto.PublicKey import RSA
 from Crypto.Signature import PKCS1_v1_5
-from datetime import datetime
 
 
 class AliPay(object):
@@ -16,6 +16,10 @@ class AliPay(object):
     """
 
     GATE_WAY = 'https://mapi.alipay.com/gateway.do'
+
+    class NOTIFY_TYPES:
+        BATCH_REFUND = 'batch_refund_notify'
+        TRADE = 'trade_status_sync'
 
     class RefundElement(object):
         """ 退款单个元素
@@ -37,7 +41,7 @@ class AliPay(object):
         :param app_private_key: app私钥
         :param app_public_key: app公钥
         :param ali_public_key: ali公钥
-        :param input_charset: 请求编码类型 
+        :param input_charset: 请求编码类型
         :param notify_url: 支付宝服务器主动通知商户服务器里指定的页面http/https路径。建议商户使用https
         :param partner: 卖家支付宝账号对应的支付宝唯一用户号(以2088开头的16位纯数字),订单支付金额将打入该账户,一个partner可以对应多个seller_id
         :param seller_id: 收款支付宝用户ID。 如果该值为空，则默认为商户签约账号对应的支付宝用户ID
@@ -169,14 +173,15 @@ class AliPay(object):
         res = requests.get(self.GATE_WAY, params=params, verify=False)
         return res.text == 'true'
 
-    def __get_pay_params(self, out_trade_no, total_fee, subject='', body='', service='mobile.securitypay.pay', payment_type=1):
+    def __get_pay_params(self, out_trade_no, total_fee, subject='', body='', service='mobile.securitypay.pay',
+                         payment_type=1):
         """ 创建订单后返回客户端的参数
         :param str out_trade_no: 订单号
         :param int total_fee: 总价格
         :param str subject: 商品的标题/交易标题/订单标题/订单关键字等
         :param str body: 对一笔交易的具体描述信息。如果是多种商品，请将商品描述字符串累加传给body
         :param str service: 接口名称，固定为mobile.securitypay.pay
-        :param str payment_type: 支付类型, 支付为固定值 "1" 
+        :param str payment_type: 支付类型, 支付为固定值 "1"
         :return dict: 返回给客户端的订单支付信息字典
         """
         param_dict = {
@@ -193,14 +198,15 @@ class AliPay(object):
         }
         return param_dict
 
-    def gen_order(self, out_trade_no, total_fee, subject='', body='', service='mobile.securitypay.pay', payment_type='1'):
+    def gen_order(self, out_trade_no, total_fee, subject='', body='', service='mobile.securitypay.pay',
+                  payment_type='1'):
         """ 生成支付宝订单参数
-        :param out_trade_no: 订单号
-        :param total_fee: 总价格(单位: 元)
-        :param subject: 商品的标题/交易标题/订单标题/订单关键字等
-        :param body: 对一笔交易的具体描述信息。如果是多种商品，请将商品描述字符串累加传给body
-        :param service: 接口名称，固定为mobile.securitypay.pay
-        :param payment_type: 支付类型, 支付为固定值 "1" 
+        :param str out_trade_no: 订单号
+        :param str total_fee: 总价格(单位: 元)
+        :param str subject: 商品的标题/交易标题/订单标题/订单关键字等
+        :param str body: 对一笔交易的具体描述信息。如果是多种商品，请将商品描述字符串累加传给body
+        :param str service: 接口名称，固定为mobile.securitypay.pay
+        :param str payment_type: 支付类型, 支付为固定值 "1"
         :return dict: 返回给客户端的订单支付信息字典
         """
         param_dict = self.__get_pay_params(out_trade_no, total_fee, subject, body, service, payment_type)
@@ -229,7 +235,8 @@ class AliPay(object):
         """
         payment_dict = self.__resolve_alipay_params(**kwargs)
         cleaned_payment_dict = self.__filter_sign_params(**payment_dict)
-        if not self.__verify_source(cleaned_payment_dict.get('notify_id')):
+        notify_type = cleaned_payment_dict['notify_type']
+        if notify_type == self.NOTIFY_TYPES.TRADE and not self.__verify_source(cleaned_payment_dict.get('notify_id')):
             raise ValueError("来源不是支付宝/已更新完成")
         payment_str = self.__dict2str(quotes=False, **cleaned_payment_dict)
         sign = payment_dict.get('sign')
@@ -249,11 +256,11 @@ class AliPay(object):
         payment_str = self.__dict2str(quotes=True, **param_dict)
         return self.__verify_alipay_sign(payment_str, sign), param_dict
 
-    def order_refund(self, out_trade_no, refund_amount, batch_no, refund_elements):
-        """ 退订订单
-        :param str out_trade_no: 待退款订单号
-        :param refund_fee: 
-        :return: 
+    def get_refund_params(self, batch_no, refund_elements):
+        """ 获得退订参数
+        :param str batch_no: 退订批次号 格式: %Y%m%d+5位数字
+        :param list(RefundElement) refund_elements: 退订订单列表
+        :return dict: 页面请求参数(get)
         """
         timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         detail_data = '#'.join(map(str, refund_elements))
@@ -269,13 +276,19 @@ class AliPay(object):
             'detail_data': detail_data,
             'sign_type': self.sign_type,
         }
+
         tmp_params = self.__filter_sign_params(**params)
         param_str = self.__dict2str(quotes=False, **tmp_params)
         sign = self.__get_sign(param_str)
         params['sign'] = sign
-        for k, v in params.items():
-            print str(k) + ':' + str(v)
-        # params['sign_type'] = self.sign_type
-        # res = requests.get(self.GATE_WAY, params=params, verify=False)
-        # rtn_dict = res.content
-        # return rtn_dict
+        return params
+
+    def get_refund_url(self, batch_no, refund_elements):
+        """ 获得退订url
+        :param str batch_no: 退订批次号 格式: %Y%m%d+5位数字
+        :param list(RefundElement) refund_elements: 退订订单列表
+        :return str: 获得退订url
+        """
+        refund_dict = self.get_refund_params(batch_no, refund_elements)
+        refund_dict['detail_data'] = urllib.quote(refund_dict['detail_data'])
+        return self.GATE_WAY + '?' + '&'.join(['%s=%s' % (k, v) for k, v in refund_dict.items()])
