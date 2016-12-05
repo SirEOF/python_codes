@@ -23,25 +23,35 @@ class WeChatPay(object):
     WE_CHAT_ORDER_QUERY_URL = 'https://api.mch.weixin.qq.com/pay/orderquery'
     REFUND_URL = 'https://api.mch.weixin.qq.com/secapi/pay/refund'
 
-    def __init__(self, app_id, mch_id, dealer_key, notify_url='', device_info='WEB'):
+    def __init__(self, app_id, mch_id, dealer_key, cert_key, notify_url='', device_info='WEB', trade_type='APP'):
         """ 创建支付实例
         :param str app_id: 微信开放平台审核通过的应用APPID
         :param str mch_id: 微信支付分配的商户号
         :param str dealer_key: 微信支付商户证书
+        :param tuple cert_key: 证书秘钥路径数组
         :param str notify_url: 回调url
         :param str device_info: 终端设备号(门店号或收银设备ID)，默认请传"WEB"
+        :param str trade_type: 交易类型, 默认APP交易
         """
         self.app_id = app_id
         self.mch_id = mch_id
         self.dealer_key = dealer_key
         self.notify_url = notify_url
         self.device_info = device_info
-
-        self.trade_type = 'APP'
+        if cert_key:
+            if isinstance(cert_key, (tuple, list)) and len(cert_key) == 2 and isinstance(cert_key[0],
+                                                                                         basestring) and isinstance(
+                    cert_key[1], basestring):
+                self.cert_key = cert_key
+            else:
+                raise ValueError(u'cert_key必须是[证书路径, 密钥路径]数组')
+        else:
+            self.cert_key = None
+        self.trade_type = trade_type
 
     def __prepare_query_params(self, **kwargs):
         """ 准备请求参数
-        :param dict kwargs: 参数字典 
+        :param dict kwargs: 参数字典
         :return dict:
         """
         rtn_params = kwargs.copy()
@@ -108,11 +118,11 @@ class WeChatPay(object):
         :param str body: 请求描述
         :return dict: 返回微信端返回的所有信息
         """
-        self.nonce_str = self.__make_random_nonce()
+        nonce_str = self.__make_random_nonce()
         request_params = {
             'appid': self.app_id,
             'mch_id': self.mch_id,
-            'nonce_str': self.nonce_str,
+            'nonce_str': nonce_str,
             'body': body,
             'out_trade_no': trade_no,
             'total_fee': total_fee,
@@ -134,7 +144,7 @@ class WeChatPay(object):
         sign_regenerate_dict = {
             # sign 需要重新生成
             'appid': self.app_id,
-            'noncestr': self.nonce_str,
+            'noncestr': nonce_str,
             'package': context.get('package'),
             'timestamp': context.get('timestamp'),
             'prepayid': context.get('prepay_id'),
@@ -144,7 +154,7 @@ class WeChatPay(object):
         context.update(sign=sign)
         wechat_context = {
             'weixin_msg': context,
-            'nonce_str': self.nonce_str,
+            'nonce_str': nonce_str,
             'trade_no': trade_no,
             'prepay_id': context.get('prepay_id')
         }
@@ -169,7 +179,7 @@ class WeChatPay(object):
     def verify_sign(self, **kwargs):
         """ 验证微信返回过来的 sign 字段是否正确
         :param dict kwargs: 返回的所有字段
-        :return bool: 验证是否通过 
+        :return bool: 验证是否通过
         """
         sign = kwargs.pop('sign', None)
         real_sign = self.__make_sign(**kwargs)
@@ -186,3 +196,28 @@ class WeChatPay(object):
                 u'<return_msg><![CDATA[{message}]]></return_msg>').format(status=status_str, message=message)
 
     xml2dict = __parse_xml_result
+
+    def order_refund(self, out_trade_no, out_refund_no, total_fee, refund_fee):
+        """　退款服务
+        :param out_trade_no: 我方订单号
+        :param out_refund_no: 我方退款号
+        :param total_fee: 总交易数额
+        :param refund_fee: 退款数额
+        :return: 微信回执字典
+        """
+        nonce_str = self.__make_random_nonce()
+        request_params = {
+            'appid': self.app_id,
+            'mch_id': self.mch_id,
+            'nonce_str': nonce_str,
+            'out_trade_no': out_trade_no,
+            'out_refund_no': out_refund_no,
+            'total_fee': total_fee,
+            'refund_fee': refund_fee,
+            'op_user_id': self.mch_id,
+        }
+        xml_params = self.__prepare_query_params(**request_params)
+        res = requests.post(self.REFUND_URL, data=xml_params, cert=self.cert_key,
+                            headers={'Content-Type': 'text/xml'}, verify=True)
+        context = self.__parse_xml_result(res.content)
+        return context
