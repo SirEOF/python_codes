@@ -7,8 +7,7 @@
 #
 # requirements:
 #   1. PhantomJS
-#   2. Git
-#   3. selenium
+#   2. selenium
 #
 #####################################
 
@@ -19,8 +18,6 @@ from selenium.webdriver.support.wait import WebDriverWait
 
 USERNAME = '**'
 PASSWORD = '**'
-PROJ_PATH = '../../'
-GIT_USERNAME = 'weidwonder'
 
 
 def has_page_load(driver):
@@ -55,6 +52,7 @@ def jingoal_sign():
 
     except:
         driver.quit()
+
 
 if __name__ == '__main__':
     jingoal_sign()
