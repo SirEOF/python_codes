@@ -52,8 +52,7 @@ def jingoal_sign(username, password):
         attend_btn = driver.find_element_by_xpath(btn_xpath)
         attend_btn.click()
     except:
-        import traceback
-        traceback.print_exc()
+        raise
     finally:
         driver.quit()
 
@@ -68,15 +67,47 @@ def today_is_holiday():
     return int(resp.values()[0])
 
 
+def send_self_email(email_address, password, content):
+    import smtplib
+    from email.mime.text import MIMEText
+    _user = email_address
+    _pwd = password
+    _to = email_address
+
+    msg = MIMEText(content)
+    msg["Subject"] = __file__ + datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    msg["From"] = _user
+    msg["To"] = _to
+
+    try:
+        s = smtplib.SMTP_SSL("smtp.qq.com", 465)
+        s.login(_user, _pwd)
+        s.sendmail(_user, _to, msg.as_string())
+        s.quit()
+    except smtplib.SMTPException, e:
+        pass
+
+
 if __name__ == '__main__':
     # 脚本每天8:53 / 6:40 运行
-    if today_is_holiday():
-        print u'today is holiday'
-    else:
-        parser = argparse.ArgumentParser(description=u'JinGoal Sign in/out script.')
-        parser.add_argument('username', metavar='<USERNAME>', type=str, help='JinGoal username')
-        parser.add_argument('password', metavar='<PASSWORD>', type=str, help='JinGoal password')
-        args = parser.parse_args()
-        wait_sec = random.randint(0, 60 * 6)
-        sleep(wait_sec)
-        jingoal_sign(args.username, args.password)
+    parser = argparse.ArgumentParser(description=u'JinGoal Sign in/out script.')
+    parser.add_argument('username', metavar='<USERNAME>', type=str, help='JinGoal username')
+    parser.add_argument('password', metavar='<PASSWORD>', type=str, help='JinGoal password')
+    parser.add_argument('-e', dest='email', default='', help='error email address')
+    parser.add_argument('-ep', dest='email_pass', default='', help='error email password (必须是授权码)')
+    args = parser.parse_args()
+    try:
+        if today_is_holiday():
+            print u'today is holiday'
+        else:
+            wait_sec = random.randint(0, 60 * 6)
+            sleep(wait_sec)
+            jingoal_sign(args.username, args.password)
+    except:
+        import traceback
+
+        if not (args.email and args.email_pass):
+            traceback.print_exc()
+        else:
+            error_str = traceback.format_exc()
+            send_self_email(args.email, args.email_pass, error_str)
