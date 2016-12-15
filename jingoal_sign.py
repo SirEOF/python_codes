@@ -50,7 +50,7 @@ def jingoal_sign(username, password):
         btn_xpath = '//*[@id="attend_table"]/div/div[contains(@class, "attend-btn")]/button'
         WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, btn_xpath)))
         attend_btn = driver.find_element_by_xpath(btn_xpath)
-        # attend_btn.click()
+        attend_btn.click()
     except:
         import traceback
         traceback.print_exc()
