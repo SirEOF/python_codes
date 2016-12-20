@@ -38,16 +38,17 @@ class WechatOAuth(object):
         url = 'https://api.weixin.qq.com/sns/oauth2/access_token'
         try:
             resp = requests.get(url, params={
-                'app_id': self.app_id,
+                'appid': self.app_id,
                 'secret': self.app_secret,
                 'code': code,
                 'grant_type': 'authorization_code',
             }, verify=False)
+            resp.encoding = 'utf8'
             resp_dict = resp.json()
         except Exception as e:
             raise WechatApiException(u'微信api调用出错:' + e.message)
-        if resp_dict.get('errorcode'):
-            raise WechatApiException(resp_dict.get('errormsg'))
+        if resp_dict.get('errcode'):
+            raise WechatApiException(resp_dict.get('errmsg'))
         return resp_dict
 
     def refresh_access_token(self, refresh_token):
@@ -66,15 +67,16 @@ class WechatOAuth(object):
         url = 'https://api.weixin.qq.com/sns/oauth2/refresh_token'
         try:
             resp = requests.get(url, params={
-                'app_id': self.app_id,
+                'appid': self.app_id,
                 'refresh_token': refresh_token,
                 'grant_type': 'refresh_token',
             }, verify=False)
+            resp.encoding = 'utf8'
             resp_dict = resp.json()
         except Exception as e:
             raise WechatApiException(u'微信api调用出错:' + e.message)
-        if resp_dict.get('errorcode'):
-            raise WechatApiException(resp_dict.get('errormsg'))
+        if resp_dict.get('errcode'):
+            raise WechatApiException(resp_dict.get('errmsg'))
         return resp_dict
 
     def get_user_info(self, access_token, openid):
@@ -103,9 +105,10 @@ class WechatOAuth(object):
                 'access_token': access_token,
                 'openid': openid,
             }, verify=False)
+            resp.encoding = 'utf8'
             resp_dict = resp.json()
         except Exception as e:
             raise WechatApiException(u'微信api调用出错:' + e.message)
-        if resp_dict.get('errorcode'):
-            raise WechatApiException(resp_dict.get('errormsg'))
+        if resp_dict.get('errcode'):
+            raise WechatApiException(resp_dict.get('errmsg'))
         return resp_dict

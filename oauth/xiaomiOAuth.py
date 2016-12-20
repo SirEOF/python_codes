@@ -47,7 +47,7 @@ class XiaoMiOAuth(object):
         try:
             resp = requests.get(url, params={
                 'client_id': self.client_id,
-                'redirect_uri': '',  # TODO
+                'redirect_uri': self.redirect_uri,
                 'client_secret': self.client_secret,
                 'grant_type': 'authorization_code',
                 'code': code,
@@ -56,8 +56,8 @@ class XiaoMiOAuth(object):
             resp_dict = json.loads(resp_content)
         except Exception as e:
             raise XiaoMiApiException(u'小米api调用出错:' + e.message)
-        if resp_dict.get('errorcode'):
-            raise XiaoMiApiException(resp_dict.get('errormsg'))
+        if resp_dict.get('error'):
+            raise XiaoMiApiException(resp_dict.get('error_description'))
         return resp_dict
 
     def refresh_access_token(self, refresh_token):
@@ -98,20 +98,15 @@ class XiaoMiOAuth(object):
         :param str access_token: 调用凭证
         :return dict: 
             {
-                "result": "ok",
-                "description": "成功",
-                "data": {
-                    "miliaoNick": "小米帐号昵称",
-                    "userId": "小米用户账号",
-                    "miliaoIcon": "头像URL(会返回多个分辨率版本的头像)"
-                },
-                "code": 0
+                "miliaoNick": "小米帐号昵称",
+                "userId": "小米用户账号",
+                "miliaoIcon": "头像URL(会返回多个分辨率版本的头像)"
             }
         """
         url = 'https://open.account.xiaomi.com/user/profile'
         try:
             resp = requests.get(url, params={
-                'client_id': self.client_id,
+                'clientId': self.client_id,
                 'token': access_token,
             }, verify=False)
             resp_content = resp.content.replace(self.placeholder, '')
@@ -119,20 +114,13 @@ class XiaoMiOAuth(object):
         except Exception as e:
             raise XiaoMiApiException(u'小米api调用出错:' + e.message)
         if resp_dict.get('result') != 'ok':
-            raise XiaoMiApiException(resp_dict.get('error_description'))
-        return resp_dict
+            raise XiaoMiApiException(resp_dict.get('description'))
+        return resp_dict['data']
 
     def get_user_open_id(self, access_token):
         """ 获取用户open_id
         :param str access_token: 调用凭证
-        :return dict: 
-            {
-                "result": "ok",
-                "description": "成功",
-                "data": {
-                    "openid": "openid"
-                },
-                "code": 0
+        :return str: open_id 
             }
         """
         url = 'https://open.account.xiaomi.com/user/openidV2'
@@ -146,27 +134,22 @@ class XiaoMiOAuth(object):
         except Exception as e:
             raise XiaoMiApiException(u'小米api调用出错:' + e.message)
         if resp_dict.get('result') != 'ok':
-            raise XiaoMiApiException(resp_dict.get('error_description'))
-        return resp_dict
+            raise XiaoMiApiException(resp_dict.get('description'))
+        return resp_dict['data']['openid']
 
     def get_user_phone_email(self, access_token):
         """ 获取用户的手机号和邮箱
         :param access_token: 调用凭证
         :return dict:
             {
-                "result": "ok",
-                "description": "成功",
-                "data": {
-                    "phone": "用户手机号，没有phone返回空",
-                    "email": "用户email, 没有email返回空"
-                },
-                "code": 0
+                "phone": "用户手机号，没有phone返回空",
+                "email": "用户email, 没有email返回空"
             }
         """
         url = 'https://open.account.xiaomi.com/user/phoneAndEmail'
         try:
             resp = requests.get(url, params={
-                'client_id': self.client_id,
+                'clientId': self.client_id,
                 'token': access_token,
             }, verify=False)
             resp_content = resp.content.replace(self.placeholder, '')
@@ -174,5 +157,5 @@ class XiaoMiOAuth(object):
         except Exception as e:
             raise XiaoMiApiException(u'小米api调用出错:' + e.message)
         if resp_dict.get('result') != 'ok':
-            raise XiaoMiApiException(resp_dict.get('error_description'))
-        return resp_dict
+            raise XiaoMiApiException(resp_dict.get('description'))
+        return resp_dict['data']
