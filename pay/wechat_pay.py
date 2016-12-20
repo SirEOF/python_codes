@@ -39,9 +39,9 @@ class WeChatPay(object):
         self.notify_url = notify_url
         self.device_info = device_info
         if cert_key:
-            if isinstance(cert_key, (tuple, list)) and len(cert_key) == 2 and isinstance(cert_key[0],
-                                                                                         basestring) and isinstance(
-                    cert_key[1], basestring):
+            if isinstance(cert_key, (tuple, list)) and len(cert_key) == 2 and isinstance(cert_key[0], basestring) and isinstance(cert_key[1], basestring):
+                self.cert_key = cert_key
+            elif isinstance(cert_key, basestring):
                 self.cert_key = cert_key
             else:
                 raise ValueError(u'cert_key必须是[证书路径, 密钥路径]数组')
@@ -51,7 +51,7 @@ class WeChatPay(object):
 
     def __prepare_query_params(self, **kwargs):
         """ 准备请求参数
-        :param dict kwargs: 参数字典
+        :param dict kwargs: 参数字典 
         :return dict:
         """
         rtn_params = kwargs.copy()
@@ -113,11 +113,12 @@ class WeChatPay(object):
     def gen_order(self, trade_no, total_fee, ip_address, body='', notify_url=''):
         """ 请求生成支付订单
         :param str trade_no: 订单号
-        :param int total_fee: 总价格(分为单位)
+        :param float total_fee: 总价格(分为单位)
         :param str ip_address: ip地址
         :param str body: 请求描述
         :return dict: 返回微信端返回的所有信息
         """
+        total_fee = str(int(total_fee))
         nonce_str = self.__make_random_nonce()
         request_params = {
             'appid': self.app_id,
@@ -171,15 +172,15 @@ class WeChatPay(object):
             'out_trade_no': trade_no,
             'nonce_str': self.__make_random_nonce(),
         }
-        self.__prepare_query_params(**request_params)
-        res = requests.post(self.WE_CHAT_ORDER_QUERY_URL, data=self.xml_params, headers={'Content-Type': 'text/xml'})
+        xml_params = self.__prepare_query_params(**request_params)
+        res = requests.post(self.WE_CHAT_ORDER_QUERY_URL, data=xml_params, headers={'Content-Type': 'text/xml'})
         context = self.__parse_xml_result(res.content)
         return context
 
     def verify_sign(self, **kwargs):
         """ 验证微信返回过来的 sign 字段是否正确
         :param dict kwargs: 返回的所有字段
-        :return bool: 验证是否通过
+        :return bool: 验证是否通过 
         """
         sign = kwargs.pop('sign', None)
         real_sign = self.__make_sign(**kwargs)
@@ -196,7 +197,7 @@ class WeChatPay(object):
                 u'<return_msg><![CDATA[{message}]]></return_msg>').format(status=status_str, message=message)
 
     xml2dict = __parse_xml_result
-
+    
     def order_refund(self, out_trade_no, out_refund_no, total_fee, refund_fee):
         """　退款服务
         :param out_trade_no: 我方订单号
@@ -204,6 +205,39 @@ class WeChatPay(object):
         :param total_fee: 总交易数额
         :param refund_fee: 退款数额
         :return: 微信回执字典
+        成功返回示例:
+            {
+              "cash_refund_fee": "1", 
+              "coupon_refund_fee": "0", 
+              "cash_fee": "1", 
+              "refund_id": "2006082001201612060629857889", 
+              "coupon_refund_count": "0", 
+              "refund_channel": "None", 
+              "nonce_str": "Y858bSXiLfSW***d", 
+              "return_code": "SUCCESS", 
+              "return_msg": "OK", 
+              "sign": "628CDC94553C8F891B82AD55D***BDE6", 
+              "mch_id": "126*****01", 
+              "out_trade_no": "20161206140650093***0350", 
+              "transaction_id": "40060820012016120***59406202", 
+              "total_fee": "1", 
+              "appid": "wx63ff0f6*****7913", 
+              "out_refund_no": "2016****93311", 
+              "refund_fee": "1", 
+              "result_code": "SUCCESS"
+            }
+        失败返回示例:
+            {
+              "nonce_str": "NOIQGN4Tsan***gn", 
+              "return_code": "SUCCESS", 
+              "return_msg": "OK", 
+              "sign": "811C1C4BF9B72***47F121AF21C3C91B", 
+              "mch_id": "126*****01", 
+              "err_code_des": "订单状态错误", 
+              "appid": "wx63ff0f6*****7913", 
+              "result_code": "FAIL", 
+              "err_code": "TRADE_STATE_ERROR"
+            }
         """
         nonce_str = self.__make_random_nonce()
         request_params = {

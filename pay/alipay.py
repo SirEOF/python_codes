@@ -12,7 +12,7 @@ from Crypto.Signature import PKCS1_v1_5
 
 class AliPay(object):
     """
-    支付宝支付服务, 旧版, 不支持关闭订单, 强烈不建议使用
+    支付宝支付服务
     """
 
     GATE_WAY = 'https://mapi.alipay.com/gateway.do'
@@ -41,7 +41,7 @@ class AliPay(object):
         :param app_private_key: app私钥
         :param app_public_key: app公钥
         :param ali_public_key: ali公钥
-        :param input_charset: 请求编码类型
+        :param input_charset: 请求编码类型 
         :param notify_url: 支付宝服务器主动通知商户服务器里指定的页面http/https路径。建议商户使用https
         :param partner: 卖家支付宝账号对应的支付宝唯一用户号(以2088开头的16位纯数字),订单支付金额将打入该账户,一个partner可以对应多个seller_id
         :param seller_id: 收款支付宝用户ID。 如果该值为空，则默认为商户签约账号对应的支付宝用户ID
@@ -177,11 +177,11 @@ class AliPay(object):
                          payment_type=1):
         """ 创建订单后返回客户端的参数
         :param str out_trade_no: 订单号
-        :param int total_fee: 总价格
+        :param str total_fee: 总价格
         :param str subject: 商品的标题/交易标题/订单标题/订单关键字等
         :param str body: 对一笔交易的具体描述信息。如果是多种商品，请将商品描述字符串累加传给body
         :param str service: 接口名称，固定为mobile.securitypay.pay
-        :param str payment_type: 支付类型, 支付为固定值 "1"
+        :param str payment_type: 支付类型, 支付为固定值 "1" 
         :return dict: 返回给客户端的订单支付信息字典
         """
         param_dict = {
@@ -202,13 +202,14 @@ class AliPay(object):
                   payment_type='1'):
         """ 生成支付宝订单参数
         :param str out_trade_no: 订单号
-        :param str total_fee: 总价格(单位: 元)
+        :param float total_fee: 总价格(单位: 元)
         :param str subject: 商品的标题/交易标题/订单标题/订单关键字等
         :param str body: 对一笔交易的具体描述信息。如果是多种商品，请将商品描述字符串累加传给body
         :param str service: 接口名称，固定为mobile.securitypay.pay
-        :param str payment_type: 支付类型, 支付为固定值 "1"
+        :param str payment_type: 支付类型, 支付为固定值 "1" 
         :return dict: 返回给客户端的订单支付信息字典
         """
+        total_fee = str(round(total_fee, 2))
         param_dict = self.__get_pay_params(out_trade_no, total_fee, subject, body, service, payment_type)
         param_str = self.__dict2str(quotes=True, **param_dict)
         sign = self.__get_sign(param_str)
@@ -232,6 +233,15 @@ class AliPay(object):
         """ 异步回调处理器
         :param dict kwargs: 参数字典
         :return dict: 解析后的字典
+        返回示例:
+            success_num:2
+            sign:WIdaFvH**FGxCkUbtZc=
+            batch_no:2016120617503575174**42
+            sign_type:RSA
+            notify_time:2016-12-06 18:15:06
+            notify_id:9419b318608a0****7c8eae3237ibe
+            notify_type:batch_refund_notify
+            result_details:20161206210010042**90348332^0.01^SUCCESS#201612062100****90358365^0.01^SUCCESS
         """
         payment_dict = self.__resolve_alipay_params(**kwargs)
         cleaned_payment_dict = self.__filter_sign_params(**payment_dict)
