@@ -12,7 +12,7 @@ from Crypto.Signature import PKCS1_v1_5
 
 class AliPay(object):
     """
-    支付宝支付服务
+    支付宝支付服务, 老版的商户接口, 不建议使用
     """
 
     GATE_WAY = 'https://mapi.alipay.com/gateway.do'
