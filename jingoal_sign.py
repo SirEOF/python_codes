@@ -67,7 +67,7 @@ def today_is_holiday():
     return int(resp.values()[0])
 
 
-def send_self_email(email_address, password, content):
+def send_self_email(email_address, password, content, username=''):
     import smtplib
     from email.mime.text import MIMEText
     _user = email_address
@@ -75,7 +75,7 @@ def send_self_email(email_address, password, content):
     _to = email_address
 
     msg = MIMEText(content)
-    msg["Subject"] = __file__ + datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    msg["Subject"] = '%s jingoal sign failed' % username + datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     msg["From"] = _user
     msg["To"] = _to
 
@@ -110,4 +110,4 @@ if __name__ == '__main__':
             traceback.print_exc()
         else:
             error_str = traceback.format_exc()
-            send_self_email(args.email, args.email_pass, error_str)
+            send_self_email(args.email, args.email_pass, error_str, username=args.username)
