@@ -46,9 +46,16 @@ def jingoal_sign(username, password):
         username_input.send_keys(username)
         password_input.send_keys(password)
         login_button.click()
+        sign_model_xpath = '//*[@id="container"]/div/div[1]/div[2]/div[1]/a[3]'
+        WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, sign_model_xpath)))
+        sign_model = driver.find_element_by_xpath(sign_model_xpath)
+        sign_model.click()
+        driver.save_screenshot('./haha1.png')
+        sleep(10)
+        frame_element = driver.find_element_by_xpath('//*[@id="main_attend"]/iframe')
+        driver.switch_to.frame(frame_element)
         driver.save_screenshot('./haha.png')
-        btn_xpath = '//*[@id="attend_table"]/div/div[contains(@class, "attend-btn")]/button'
-        WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, btn_xpath)))
+        btn_xpath = '//div[contains(@class, "clockbtn")]'
         attend_btn = driver.find_element_by_xpath(btn_xpath)
         attend_btn.click()
     except:
