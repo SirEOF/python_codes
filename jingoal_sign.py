@@ -37,7 +37,7 @@ def jingoal_sign(username, password):
     driver.get(jin_goal_login_url)
     driver.set_window_size(1024, 1024)
     try:
-        WebDriverWait(driver, 2).until(EC.presence_of_element_located((By.ID, "email")))
+        WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.ID, "email")))
 
         username_input = driver.find_element_by_id('email')
         password_input = driver.find_element_by_id('password')
