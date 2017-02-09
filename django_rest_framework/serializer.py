@@ -24,20 +24,17 @@ def DynamicSerializer(base_serializer):
 
         def __init__(self, *args, **kwargs):
             # Don't pass the 'fields' arg up to the superclass
-            fields = kwargs.pop('fields', [])
-            excludes = kwargs.pop('excludes', [])
+            fields = kwargs.pop('fields', None)
+            excludes = kwargs.pop('excludes', None)
 
             # Instantiate the superclass normally
             super(_DynamicSerializer, self).__init__(*args, **kwargs)
 
             # Drop any fields that are not specified in the `fields` argument.
-            allowed = set(fields)
-            forbidden = set(excludes)
+            forbidden = set(excludes or [])
             existing = set(self.fields.keys())
+            allowed = existing if fields is None else set(fields)
             for field_name in (existing - allowed) | forbidden:
                 self.fields.pop(field_name)
-
-        class Meta:
-            fields = '__all__'
 
     return _DynamicSerializer

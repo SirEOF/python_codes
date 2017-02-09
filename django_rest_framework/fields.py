@@ -1,6 +1,7 @@
 # coding=utf-8
 import time
 
+import functools
 from django.core.exceptions import ObjectDoesNotExist
 from django.utils.translation import ugettext_lazy as _
 from rest_framework import serializers
@@ -28,10 +29,17 @@ class ForeignKeyRelatedField(serializers.RelatedField):
     def __init__(self, **kwargs):
         self.pk_field = kwargs.pop('pk_field', None)
         self.serializer_class = kwargs.pop('serializer_class', None)
+        self.fields = kwargs.pop('fields', None)
         self.instance = None
-        assert issubclass(self.serializer_class, serializers.ModelSerializer), \
+        if isinstance(self.serializer_class, functools.partial):
+            assert issubclass(self.serializer_class.func, serializers.ModelSerializer) \
+                and hasattr(self.serializer_class.func, 'Meta'), \
                 _('The argument `serializer_class` must be a subclass of ModelSerializer.')
-        kwargs['queryset'] = kwargs.pop('queryset', self.serializer_class.Meta.model.objects)
+            kwargs['queryset'] = kwargs.pop('queryset', self.serializer_class.func.Meta.model.objects)
+        else:
+            assert issubclass(self.serializer_class, serializers.ModelSerializer), \
+                _('The argument `serializer_class` must be a subclass of ModelSerializer.')
+            kwargs['queryset'] = kwargs.pop('queryset', self.serializer_class.Meta.model.objects)
         super(ForeignKeyRelatedField, self).__init__(**kwargs)
 
     def use_pk_only_optimization(self):
@@ -50,6 +58,12 @@ class ForeignKeyRelatedField(serializers.RelatedField):
         except (TypeError, ValueError):
             self.fail('incorrect_type', data_type=type(data).__name__)
 
+    def get_serializer(self, value):
+        if self.fields:
+            return self.serializer_class(instance=value)
+        return self.serializer_class(instance=value, fields=self.fields)
+
     def to_representation(self, value):
         value = self.instance or self.to_internal_value(value)
-        return self.serializer_class(instance=value).data
+        ser = self.get_serializer(value)
+        return ser.data
