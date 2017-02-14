@@ -15,9 +15,7 @@ class RedisActiveUserService():
     设置用户活跃, 获取活跃用户函数
     """
     ACTIVE_USERS_SET_CACHE_KEY = 'active_users_set'
-    ACTIVE_KEEP_SECONDS = 60 * 5
-
-    pool, conn, pipe = None, None, None
+    pool, conn, pipe, keep_secs = None, None, None, None
 
     @classmethod
     def _check_setup(cls):
@@ -26,12 +24,13 @@ class RedisActiveUserService():
         raise NotSetupException()
 
     @classmethod
-    def setup(cls, host, port, db=0):
+    def setup(cls, host, port, db=0, keep_secs=60 * 5):
         """ 设置redis的host, post, 和db
         """
         cls.pool = redis.ConnectionPool(host='localhost', port=port, db=db)
         cls.conn = redis.StrictRedis(connection_pool=cls.pool)
         cls.pipe = cls.conn.pipeline(transaction=False)
+        cls.keep_secs = keep_secs or cls.keep_secs
 
     @classmethod
     def get_now_score(cls):
@@ -50,7 +49,7 @@ class RedisActiveUserService():
         :return int: 失效时间戳 
         """
         now_score = now_score or cls.get_now_score()
-        limit_score = now_score - cls.ACTIVE_KEEP_SECONDS
+        limit_score = now_score - cls.keep_secs
         return limit_score
 
     @classmethod
