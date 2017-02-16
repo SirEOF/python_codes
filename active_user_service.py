@@ -73,17 +73,33 @@ class RedisActiveUserService():
 
     @classmethod
     def get_active_users(cls):
-        """ 获取激活的用户列表 
+        """ 获取激活的用户列表
+        当活跃用户较少且需要一次做多次判定的时候推荐使用此方法获取用户是否活跃, 通过判定用户是否在返回的集合中, 
+        当活跃用户数量比较庞大的时候不建议使用此方法, 请使用is_users_active.
         :return list[str]: 用户id列表
         """
         cls._check_setup()
         now_score = cls.get_now_score()
         limit_score = cls.get_limit_score(now_score)
         active_users = cls.redis.zrangebyscore(cls.ACTIVE_USERS_SET_CACHE_KEY, limit_score, now_score)
-        return active_users
+        return set(active_users)
 
+    @classmethod
+    def is_users_active(cls, user):
+        """ 判定用户是否是活跃的
+        当活跃用户较少且需要一次做多次判定的时候推荐使用get_active_users获取用户是否活跃, 通过判定用户是否在返回的集合中, 
+        当活跃用户数量比较庞大的时候在使用此方法.
+        :param users: 
+        :return bool: 是否活跃
+        """
+        cls._check_setup()
+        now_score = cls.get_now_score()
+        limit_score = cls.get_limit_score(now_score)
+        score = cls.redis.zscore(cls.ACTIVE_USERS_SET_CACHE_KEY, user)
+        return bool(score and score > limit_score)
 
 if __name__ == '__main__':
-    RedisActiveUserService.setup('localhost', 6379)
-    RedisActiveUserService.active_user('2')
+    RedisActiveUserService.setup('127.0.0.1')
+    RedisActiveUserService.active_user('3')
+    print RedisActiveUserService.is_users_active('4')
     print RedisActiveUserService.get_active_users()
