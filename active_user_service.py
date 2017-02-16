@@ -17,6 +17,8 @@ class RedisActiveUserService():
     ACTIVE_USERS_SET_CACHE_KEY = 'active_users_set'
     pool, redis, pipe, keep_secs = None, None, None, None
 
+    BIG_LIMIT = 1000
+
     @classmethod
     def _check_setup(cls):
         if cls.pool and cls.redis and cls.pipe is not None:
@@ -59,15 +61,15 @@ class RedisActiveUserService():
         return limit_score
 
     @classmethod
-    def active_user(cls, user_id):
+    def active_user(cls, user):
         """ 激活用户
-        :param str user_id: 用户id
+        :param str user: 用户标志
         """
-        user_id = str(user_id)
+        user = str(user)
         cls._check_setup()
         now_score = cls.get_now_score()
         limit_score = cls.get_limit_score(now_score)
-        cls.pipe.zadd(cls.ACTIVE_USERS_SET_CACHE_KEY, **{user_id: now_score})
+        cls.pipe.zadd(cls.ACTIVE_USERS_SET_CACHE_KEY, **{user: now_score})
         cls.pipe.zremrangebyscore(cls.ACTIVE_USERS_SET_CACHE_KEY, 0, limit_score)
         cls.pipe.execute()
 
@@ -85,11 +87,11 @@ class RedisActiveUserService():
         return set(active_users)
 
     @classmethod
-    def is_users_active(cls, user):
+    def is_user_active(cls, user):
         """ 判定用户是否是活跃的
         当活跃用户较少且需要一次做多次判定的时候推荐使用get_active_users获取用户是否活跃, 通过判定用户是否在返回的集合中, 
         当活跃用户数量比较庞大的时候在使用此方法.
-        :param users: 
+        :param users: 用户标志
         :return bool: 是否活跃
         """
         cls._check_setup()
@@ -98,8 +100,30 @@ class RedisActiveUserService():
         score = cls.redis.zscore(cls.ACTIVE_USERS_SET_CACHE_KEY, user)
         return bool(score and score > limit_score)
 
+    @classmethod
+    def is_users_active(cls, users):
+        """ 获取多个用户是否活跃的结果
+        :param users: 用户标志
+        :return: users中活跃用户集合
+        """
+        cls._check_setup()
+        # 当活跃用户量比较小
+        if cls.redis.zcard(cls.ACTIVE_USERS_SET_CACHE_KEY) < cls.BIG_LIMIT:
+            active_users = cls.get_active_users()
+            return active_users.intersection(set(users))
+        # 当活跃用户量比较大
+        active_users = set()
+        for user in users:
+            if cls.is_user_active(user):
+                active_users.add(user)
+        return active_users
+
+
 if __name__ == '__main__':
     RedisActiveUserService.setup('127.0.0.1')
-    RedisActiveUserService.active_user('3')
-    print RedisActiveUserService.is_users_active('4')
-    print RedisActiveUserService.get_active_users()
+    # for i in range(1500):
+    #     RedisActiveUserService.active_user(str(i + 1000))
+    print RedisActiveUserService.is_user_active('1440')
+    print RedisActiveUserService.is_user_active('4000')
+    print RedisActiveUserService.is_users_active(['1400', '1110001'])
+    # print RedisActiveUserService.get_active_users()
