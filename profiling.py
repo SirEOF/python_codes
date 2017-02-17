@@ -1,82 +1,35 @@
 import datetime as dt
-import timeit
-import types
+import inspect
+from collections import defaultdict
 from functools import wraps
-from operator import itemgetter
 
+import operator
+import types
 from django.views.generic import View
 
+tree = defaultdict(lambda : timing_dict)
 
-class TimingManager(object):
-    """Context Manager used with the statement 'with' to time some execution.
+timing_dict = tree
 
-    Example:
-
-    with TimingManager() as t:
-       # Code to time
-    """
-
-    clock = timeit.default_timer
-
-    def __enter__(self):
-        """
-        """
-        self.start = self.clock()
-        self.log('\n=> Start Timing: {}')
-
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        """
-        """
-        self.endlog()
-
-        return False
-
-    def log(self, s, elapsed=None):
-        """Log current time and elapsed time if present.
-        :param s: Text to display, use '{}' to format the text with
-            the current time.
-        :param elapsed: Elapsed time to display. Dafault: None, no display.
-        """
-        print s.format(self._secondsToStr(self.clock()))
-
-        if (elapsed is not None):
-            print 'Elapsed time: {}\n'.format(elapsed)
-
-    def endlog(self):
-        """Log time for the end of execution with elapsed time.
-        """
-        self.log('=> End Timing: {}', self.now())
-
-    def now(self):
-        """Return current elapsed time as hh:mm:ss string.
-        :return: String.
-        """
-        return str(dt.timedelta(seconds=self.clock() - self.start))
-
-    def _secondsToStr(self, sec):
-        """Convert timestamp to h:mm:ss string.
-        :param sec: Timestamp.
-        """
-        return str(dt.datetime.fromtimestamp(sec))
-
-
-timing_dict = {}
-
+running_stack = []
+running_sets = set()
 
 def timing(func):
     @wraps(func)
     def wrap_func(*args, **kws):
+        fn = func.__name__
         start = dt.datetime.now()
+        func_stack = map(operator.itemgetter(3), inspect.stack())
+        running_stack.append(fn)
+        running_sets.add()
         rtn = func(*args, **kws)
         end = dt.datetime.now()
         time_cost = end - start
-        timing_dict.setdefault(func.__name__, {'times': 0, 'time_costs': [], 'params': [], 'total_costs': dt.timedelta(0)})
-        timing_dict[func.__name__]['times'] += 1
-        timing_dict[func.__name__]['time_costs'].append(time_cost)
-        timing_dict[func.__name__]['params'].append((args, kws))
-        timing_dict[func.__name__]['total_costs'] += time_cost
+        timing_dict.setdefault(fn, {'times': 0, 'time_costs': [], 'params': [], 'total_costs': dt.timedelta(0)})
+        timing_dict[fn]['times'] += 1
+        timing_dict[fn]['time_costs'].append(time_cost)
+        timing_dict[fn]['params'].append((args, kws))
+        timing_dict[fn]['total_costs'] += time_cost
         return rtn
 
     return wrap_func
