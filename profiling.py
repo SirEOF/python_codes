@@ -1,5 +1,5 @@
+# coding=utf-8
 import datetime as dt
-import inspect
 import operator
 from collections import defaultdict
 from functools import wraps
@@ -8,33 +8,62 @@ from threading import local
 import types
 from django.views.generic import View
 
+from classproperty import classproperty
+
 tree = defaultdict(lambda: tree, children=[])
 
 timing_dict = tree
 
 _thread_locals = local()
 
-def Node(id, name, children=None, cost=0):
-    children = children or []
-    return {
-        'id': id,
-        'name': name,
-        'children': children,
-        'cost': cost,
+
+class FuncNode(object):
+    """ function node
+    """
+
+    fn_map = {
+        # id(fn): [fn, call_times]
+        0: [None, 1],
     }
 
-root = Node(0, 'root')
+    __root = None
 
-nodes_map = {}
-def make_node(fn):
-    node = Node(id(fn), fn.__name__)
-    nodes_map[id(fn)] = node
-    return node
+    @classmethod
+    def register_fn(cls, fn):
+        fn_info = cls.fn_map.setdefault(id(fn), [fn, 0])
+        fn_info[1] += 1
+        cls.fn_map[id(fn)] = fn_info
+        return fn_info
+
+    def __init__(self, fn, children=None, cost=0):
+        if fn is not None:
+            fn_info = self.register_fn(fn)
+            self.id = str(id(fn)) + ':' + str(fn_info[1])
+        else:
+            self.id = 0
+        self.children = children or []
+        self.cost = cost
+        self.fn = fn
+
+    @classproperty
+    def root(cls):
+        if not cls.__root:
+            cls.__root = cls(None)
+        return cls.__root
+
+    def __repr__(self):
+        if self.fn is None:
+            return 'root' + ':' + str(self.cost)
+        return self.fn.__name__ + ':' + str(self.cost)
+
+    __str__ = __repr__
 
 
 def get_stack():
+    """ get current thread user defined call stack.
+    """
     if not hasattr(_thread_locals, 'cur_stack'):
-        _thread_locals.cur_stack = [root]
+        _thread_locals.cur_stack = [FuncNode.root]
     return _thread_locals.cur_stack
 
 
@@ -42,44 +71,49 @@ def timing(func):
     @wraps(func)
     def wrap_func(*args, **kws):
         stack = get_stack()
-        node = make_node(func)
+        node = FuncNode(func)
         parent = stack[-1]
-        parent['children'].append(node)
+        parent.children.append(node)
         stack.append(node)
-        func_stack = map(operator.itemgetter(3), inspect.stack())
 
         start = dt.datetime.now()
         rtn = func(*args, **kws)
         end = dt.datetime.now()
 
-        running_sets.add()
+        stack.pop()
         time_cost = end - start
-        timing_dict.setdefault(fn, {'times': 0, 'time_costs': [], 'params': [], 'total_costs': dt.timedelta(0)})
-        timing_dict[fn]['times'] += 1
-        timing_dict[fn]['time_costs'].append(time_cost)
-        timing_dict[fn]['params'].append((args, kws))
-        timing_dict[fn]['total_costs'] += time_cost
+        node.cost = time_cost.total_seconds()
         return rtn
 
     return wrap_func
 
 
-def show_timing_cost(detail=False):
-    func_cost_tuples = sorted(timing_dict.items(), key=lambda _: _[1]['total_costs'], reverse=True)
-    total_cost = sum([_[1]['total_costs'].total_seconds() for _ in func_cost_tuples])
-    print '%(func)-30s:%(total_secs)-12s%(call_times)-12s%(percent)s' % dict(func=u'method_name', total_secs=u'total_cost',
-                                                                             call_times=u'times_run', percent=u'percent')
-    for k, v in func_cost_tuples:
-        total_seconds = v['total_costs'].total_seconds()
-        percent = round(total_seconds / total_cost * 100, 2)
-        print '%(func)-30s:%(total_secs)-12s%(call_times)-12s%(percent)s' % dict(func=k, total_secs=total_seconds,
-                                                                                 call_times=v['times'], percent=percent)
-        if detail:
-            for i, time_cost in enumerate(v['time_costs']):
-                params = v['params'][i]
-                params_str = ', '.join([str(_) for _ in params[0]]) + ', ' + ', '.join(
-                    [str(k) + '=' + repr(v) for k, v in params[1]])
-                print '\t - %(time_cost)s\t -%(params)s' % dict(time_cost=time_cost.total_seconds(), params=params_str)
+def show_timing_cost(node=FuncNode.root, deep=None, parent_cost=0):
+    if node == FuncNode.root:
+        node.cost = sum([_.cost for _ in node.children])
+
+    # calculate cost percent of parent
+    cost_percent = ''
+    if parent_cost:
+        cost_percent = str(round((node.cost * 100.0) / parent_cost, 2)) + '%'
+
+    deep = deep or []
+
+    ver_con = '│   '
+    ver_des = '    '
+    tab_option = [ver_con, ver_des]
+    child_con = '├───'
+    child_des = '└───'
+
+    print '%(name)-25s: %(cost_percent)5s %(cost)8s(S)' % dict(name=getattr(node.fn, '__name__', 'root'),
+                                                                 cost_percent=cost_percent, cost=node.cost)
+    cur_children = sorted(node.children, key=operator.attrgetter('cost'), reverse=True)
+    max_index = len(cur_children) - 1
+    for i, c in enumerate(cur_children):
+        done = i == max_index
+        start_char = child_des if done else child_con
+        print ''.join([tab_option[_] for _ in deep]) + start_char,
+        show_timing_cost(c, deep=deep + [done], parent_cost=c.cost)
 
 
 def view_timing(view):
