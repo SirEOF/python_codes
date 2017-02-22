@@ -107,9 +107,16 @@ if __name__ == '__main__':
         if today_is_holiday():
             print u'today is holiday'
         else:
-            wait_sec = random.randint(0, 60 * 6)
+            wait_sec = random.randint(0, 60 * 2)
             sleep(wait_sec)
-            jingoal_sign(args.username, args.password)
+            error_times = 0
+            success = False
+            while error_times < 3 and not success:
+                try:
+                    jingoal_sign(args.username, args.password)
+                    success = True
+                except:
+                    error_times += 1
     except:
         import traceback
 
