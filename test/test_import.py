@@ -1,45 +1,64 @@
-import sys
+# coding=utf-8
 
 import imp
+import sys
 import os
 
 
-class PkgLoader(object):
-    def install(self):
-        sys.meta_path[:] = [x for x in sys.meta_path if self != x] + [self]
+class ImpImporter:
+    """ Importer
+    """
 
     def find_module(self, fullname, path=None):
-        return self
+        # Note: we ignore 'path' argument since it is only used via meta_path
+        subname = fullname.split(".")[-1]
+        if subname != fullname and path is None:
+            return None
+        try:
+            file, filename, etc = imp.find_module(subname, path)
+        except ImportError:
+            return None
+        return ImpLoader(fullname, file, filename, etc)
+
+
+class ImpLoader:
+    """ ImpLoader
+    """
+    code = source = None
+
+    def __init__(self, fullname, file, filename, etc):
+        self.file = file
+        self.filename = filename
+        self.fullname = fullname
+        self.etc = etc
 
     def load_module(self, fullname):
-        m_info = fullname
-        
-        if fullname in sys.modules:
-            return sys.modules[fullname]
-        parts = fullname.split('.')[1:]
-        path = os.path.join(os.path.dirname(__file__), '..')
-        # intermediate module
-        ns = 'parent.intermediate'
-        if ns in sys.modules:
-            m = sys.modules[ns]
-        elif parts[0] == 'intermediate':
-            m = imp.new_module(ns)
-            m.__name__ = ns
-            m.__path__ = [ns]
-            m.__package__ = '.'.join(ns.rsplit('.', 1)[:-1])
-        else:
-            raise ImportError("Module %s not found." % fullname)
-        # submodules
-        for p in parts[1:]:
-            ns = '%s.%s' % (ns, p)
-            fp, filename, options = imp.find_module(p, [path])
-            if ns in sys.modules:
-                m = sys.modules[ns]
-            else:
-                m = imp.load_module(ns, fp, filename, options)
-                sys.modules[ns] = m
-            path = filename
-        return m
+        self._reopen()
+        try:
+            mod = imp.load_module(fullname, self.file, self.filename, self.etc)
+        finally:
+            if self.file:
+                self.file.close()
+        # Note: we don't set __loader__ because we want the module to look
+        # normal; i.e. this is just a wrapper for standard import machinery
+        return mod
 
-loader = PkgLoader()
-loader.install()
+    def get_data(self, pathname):
+        return open(pathname, "rb").read()
+
+    def _reopen(self):
+        if self.file and self.file.closed:
+            mod_type = self.etc[2]
+            if mod_type == imp.PY_SOURCE:
+                self.file = open(self.filename, 'rU')
+            elif mod_type in (imp.PY_COMPILED, imp.C_EXTENSION):
+                self.file = open(self.filename, 'rb')
+
+def install_importer():
+    importer = ImpImporter()
+    sys.meta_path = [importer]
+
+install_importer()
+import pay
+import operator
+from pay import alipay
