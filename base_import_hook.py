@@ -2,7 +2,6 @@
 
 import imp
 import sys
-import os
 
 
 class ImpImporter:
@@ -54,11 +53,13 @@ class ImpLoader:
             elif mod_type in (imp.PY_COMPILED, imp.C_EXTENSION):
                 self.file = open(self.filename, 'rb')
 
+
 def install_importer():
     importer = ImpImporter()
     sys.meta_path = [importer]
 
+
 install_importer()
 import pay
 import operator
-from pay import alipay
+from pay.alipay import *
