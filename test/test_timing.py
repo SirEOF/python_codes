@@ -1,8 +1,11 @@
+from profiling import show_timing_cost, install_importer, activate_timing
+
+install_importer('..')
+
 from time import sleep
 
 from async_iter import AsyncIterHandler
 
-from profiling import view_timing, show_timing_cost
 
 multitasking = AsyncIterHandler('threading')
 
@@ -11,7 +14,6 @@ def chain(inst):
     return inst.g()
 
 
-@view_timing
 class C(object):
     """ haha
     """
@@ -32,6 +34,12 @@ class C(object):
 
 
 c = C()
-c.f()
 
+for n, a in locals().items():
+    if n == 'install_importer':
+        print a.__module__
+
+
+activate_timing(locals())
+c.f()
 show_timing_cost()
