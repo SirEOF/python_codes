@@ -1,14 +1,14 @@
 # coding=utf-8
+
 import datetime as dt
+import imp
+import inspect
 import operator
+import os
+import sys
 from collections import defaultdict
 from functools import wraps
 from threading import local
-
-import types
-from django.views.generic import View
-
-from classproperty import classproperty
 
 tree = defaultdict(lambda: tree, children=[])
 
@@ -45,7 +45,7 @@ class FuncNode(object):
         self.cost = cost
         self.fn = fn
 
-    @classproperty
+    @classmethod
     def root(cls):
         if not cls.__root:
             cls.__root = cls(None)
@@ -63,7 +63,7 @@ def get_stack():
     """ get current thread user defined call stack.
     """
     if not hasattr(_thread_locals, 'cur_stack'):
-        _thread_locals.cur_stack = [FuncNode.root]
+        _thread_locals.cur_stack = [FuncNode.root()]
     return _thread_locals.cur_stack
 
 
@@ -88,8 +88,8 @@ def timing(func):
     return wrap_func
 
 
-def show_timing_cost(node=FuncNode.root, deep=None, parent_cost=0):
-    if node == FuncNode.root:
+def show_timing_cost(node=FuncNode.root(), deep=None, parent_cost=0):
+    if node == FuncNode.root():
         node.cost = sum([_.cost for _ in node.children])
 
     # calculate cost percent of parent
@@ -106,7 +106,7 @@ def show_timing_cost(node=FuncNode.root, deep=None, parent_cost=0):
     child_des = '└───'
 
     print '%(name)-25s: %(cost_percent)5s %(cost)8s(S)' % dict(name=getattr(node.fn, '__name__', 'root'),
-                                                                 cost_percent=cost_percent, cost=node.cost)
+                                                               cost_percent=cost_percent, cost=node.cost)
     cur_children = sorted(node.children, key=operator.attrgetter('cost'), reverse=True)
     max_index = len(cur_children) - 1
     for i, c in enumerate(cur_children):
@@ -116,9 +116,102 @@ def show_timing_cost(node=FuncNode.root, deep=None, parent_cost=0):
         show_timing_cost(c, deep=deep + [done], parent_cost=c.cost)
 
 
-def view_timing(view):
-    for attr_name in set(dir(view)) - set(dir(View)):
-        attr = getattr(view, attr_name)
-        if isinstance(attr, types.MethodType):
-            setattr(view, attr_name, timing(attr))
-    return view
+ROOT_DIR = ''
+
+
+class ProfilingImporter:
+    """ Importer
+    """
+
+    def __init__(self):
+        if not ROOT_DIR:
+            raise RuntimeError(u'Please use `install_importer` to install ProfilingImporter')
+
+    def find_module(self, fullname, path=None):
+        # Note: we ignore 'path' argument since it is only used via meta_path
+        subname = fullname.split(".")[-1]
+        if subname != fullname and path is None:
+            return None
+        try:
+            file, filename, etc = imp.find_module(subname, path)
+        except ImportError:
+            return None
+        return ProfilingLoader(fullname, file, filename, etc)
+
+
+class ProfilingLoader:
+    """ ImpLoader
+    """
+    code = source = None
+
+    def __init__(self, fullname, file, filename, etc):
+        self.file = file
+        self.filename = filename
+        self.fullname = fullname
+        self.etc = etc
+
+    def load_module(self, fullname):
+        self._reopen()
+        try:
+            mod = imp.load_module(fullname, self.file, self.filename, self.etc)
+        finally:
+            if self.file:
+                self.file.close()
+        # Note: we don't set __loader__ because we want the module to look
+        # normal; i.e. this is just a wrapper for standard import machinery
+        self.inject_timing(mod)
+        return mod
+
+    def get_data(self, pathname):
+        return open(pathname, "rb").read()
+
+    def _reopen(self):
+        if self.file and self.file.closed:
+            mod_type = self.etc[2]
+            if mod_type == imp.PY_SOURCE:
+                self.file = open(self.filename, 'rU')
+            elif mod_type in (imp.PY_COMPILED, imp.C_EXTENSION):
+                self.file = open(self.filename, 'rb')
+
+    def inject_timing(self, mod):
+        if self.filename.startswith(ROOT_DIR) and self.filename != __file__:
+            print 'install ', self.fullname
+            for attr in dir(mod):
+                if not attr.startswith('__'):
+                    rattr = getattr(mod, attr)
+                    attr_module = getattr(rattr, '__module__', None)
+                    if attr_module == self.fullname:
+                        print attr, '>' * 10
+                        setattr(mod, attr, wrap_timing(rattr))
+
+
+def install_importer(root_dir='.'):
+    global ROOT_DIR
+    ROOT_DIR = os.path.abspath(root_dir)
+    importer = ProfilingImporter()
+    sys.meta_path = [importer]
+
+
+silence_attrs = {'__class__'}
+
+
+def wrap_timing(obj):
+    if inspect.isclass(obj):
+        for attr in dir(obj):
+            if attr in silence_attrs: continue
+            try:
+                setattr(obj, attr, wrap_timing(getattr(obj, attr)))
+            except AttributeError:
+                pass
+        return obj
+    if ((inspect.ismethod(obj) and obj.__func__.__code__.co_filename.startswith(ROOT_DIR))
+        or (inspect.isfunction(obj) and obj.__code__.co_filename.startswith(ROOT_DIR))):
+        return timing(obj)
+    return obj
+
+
+def activate_timing(_locals):
+    for name, attr in _locals.items():
+        if hasattr(attr, '__module__'):
+            if attr.__module__ == '__main__':
+                _locals[name] = wrap_timing(attr)
