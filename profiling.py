@@ -1,5 +1,5 @@
 # coding=utf-8
-
+# TODO(weidwonder): 下一步是优化显示, 把其他线程的根换成新的
 import datetime as dt
 import imp
 import inspect
@@ -177,12 +177,14 @@ class ProfilingLoader:
         if self.filename.startswith(ROOT_DIR) and self.filename != __file__:
             print 'install ', self.fullname
             for attr in dir(mod):
+                print attr
                 if not attr.startswith('__'):
-                    rattr = getattr(mod, attr)
-                    attr_module = getattr(rattr, '__module__', None)
+                    real_attr = getattr(mod, attr)
+                    attr_module = getattr(real_attr, '__module__', None)
                     if attr_module == self.fullname:
-                        print attr, '>' * 10
-                        setattr(mod, attr, wrap_timing(rattr))
+                        new_attr, to_set = wrap_timing(real_attr)
+                        if to_set:
+                            setattr(mod, attr, new_attr)
 
 
 def install_importer(root_dir='.'):
@@ -192,26 +194,49 @@ def install_importer(root_dir='.'):
     sys.meta_path = [importer]
 
 
-silence_attrs = {'__class__'}
+silence_attrs = {'__class__', '__new__'}
 
 
-def wrap_timing(obj):
+class VariableTypes:
+    FREE = 1
+    IN_CLASS = 2
+
+def wrap_timing(obj, _type=VariableTypes.FREE):
     if inspect.isclass(obj):
         for attr in dir(obj):
             if attr in silence_attrs: continue
             try:
-                setattr(obj, attr, wrap_timing(getattr(obj, attr)))
-            except AttributeError:
+                new_attr, to_set = wrap_timing(getattr(obj, attr), _type=VariableTypes.IN_CLASS)
+                if to_set:
+                    setattr(obj, attr, new_attr)
+            except:
                 pass
-        return obj
-    if ((inspect.ismethod(obj) and obj.__func__.__code__.co_filename.startswith(ROOT_DIR))
-        or (inspect.isfunction(obj) and obj.__code__.co_filename.startswith(ROOT_DIR))):
-        return timing(obj)
-    return obj
+        return obj, False
+    if (inspect.ismethod(obj) and obj.__func__.__code__.co_filename.startswith(ROOT_DIR)):
+        if obj.__self__ is not None:
+            # obj is a classmethod
+            if _type is VariableTypes.IN_CLASS:
+                # obj is a reference to a class method
+                return classmethod(obj.__func__), True
+            else:
+                return obj, False
+        else:
+            # obj is a instance method
+            return timing(obj), True
+    if inspect.isfunction(obj) and obj.__code__.co_filename.startswith(ROOT_DIR):
+        if  _type is VariableTypes.IN_CLASS:
+            # obj is a staticmethod
+            return staticmethod(obj.__func__), True
+        else:
+            # obj is a free function
+            return timing(obj), True
+    return obj, False
 
 
 def activate_timing(_locals):
     for name, attr in _locals.items():
         if hasattr(attr, '__module__'):
             if attr.__module__ == '__main__':
-                _locals[name] = wrap_timing(attr)
+                new_attr, to_set = wrap_timing(attr)
+                if to_set:
+                    _locals[name] = new_attr
