@@ -16,6 +16,8 @@ timing_dict = tree
 
 _thread_locals = local()
 
+timing_started = False
+
 
 class FuncNode(object):
     """ function node
@@ -70,6 +72,8 @@ def get_stack():
 def timing(func):
     @wraps(func)
     def wrap_func(*args, **kws):
+        if not timing_started:
+            return func(*args, **kws)
         stack = get_stack()
         node = FuncNode(func)
         parent = stack[-1]
@@ -175,9 +179,7 @@ class ProfilingLoader:
 
     def inject_timing(self, mod):
         if self.filename.startswith(ROOT_DIR) and self.filename != __file__:
-            print 'install ', self.fullname
             for attr in dir(mod):
-                print attr
                 if not attr.startswith('__'):
                     real_attr = getattr(mod, attr)
                     attr_module = getattr(real_attr, '__module__', None)
@@ -200,6 +202,7 @@ silence_attrs = {'__class__', '__new__'}
 class VariableTypes:
     FREE = 1
     IN_CLASS = 2
+
 
 def wrap_timing(obj, _type=VariableTypes.FREE):
     if inspect.isclass(obj):
@@ -224,7 +227,7 @@ def wrap_timing(obj, _type=VariableTypes.FREE):
             # obj is a instance method
             return timing(obj), True
     if inspect.isfunction(obj) and obj.__code__.co_filename.startswith(ROOT_DIR):
-        if  _type is VariableTypes.IN_CLASS:
+        if _type is VariableTypes.IN_CLASS:
             # obj is a staticmethod
             return staticmethod(obj.__func__), True
         else:
@@ -234,9 +237,11 @@ def wrap_timing(obj, _type=VariableTypes.FREE):
 
 
 def activate_timing(_locals):
+    global timing_started
     for name, attr in _locals.items():
         if hasattr(attr, '__module__'):
             if attr.__module__ == '__main__':
                 new_attr, to_set = wrap_timing(attr)
                 if to_set:
                     _locals[name] = new_attr
+    timing_started = True
