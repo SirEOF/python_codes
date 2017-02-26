@@ -16,6 +16,7 @@ timing_dict = tree
 
 _thread_locals = local()
 
+
 timing_started = False
 
 
@@ -88,7 +89,6 @@ def timing(func):
         time_cost = end - start
         node.cost = time_cost.total_seconds()
         return rtn
-
     return wrap_func
 
 
@@ -109,15 +109,16 @@ def show_timing_cost(node=FuncNode.root(), deep=None, parent_cost=0):
     child_con = '├───'
     child_des = '└───'
 
-    print '%(name)-25s: %(cost_percent)5s %(cost)8s(S)' % dict(name=getattr(node.fn, '__name__', 'root'),
-                                                               cost_percent=cost_percent, cost=node.cost)
+    filename = node.fn.__code__.co_filename if node.fn else ''
+    print '%(name)-25s: %(cost_percent)5s %(cost)8s(S) file: %(file)s' % dict(name=getattr(node.fn, '__name__', 'root'),
+                                                               cost_percent=cost_percent, cost=node.cost, file=filename)
     cur_children = sorted(node.children, key=operator.attrgetter('cost'), reverse=True)
     max_index = len(cur_children) - 1
     for i, c in enumerate(cur_children):
         done = i == max_index
         start_char = child_des if done else child_con
         print ''.join([tab_option[_] for _ in deep]) + start_char,
-        show_timing_cost(c, deep=deep + [done], parent_cost=c.cost)
+        show_timing_cost(c, deep=deep + [done], parent_cost=node.cost)
 
 
 ROOT_DIR = ''
@@ -203,7 +204,6 @@ class VariableTypes:
     FREE = 1
     IN_CLASS = 2
 
-
 def wrap_timing(obj, _type=VariableTypes.FREE):
     if inspect.isclass(obj):
         for attr in dir(obj):
@@ -227,7 +227,7 @@ def wrap_timing(obj, _type=VariableTypes.FREE):
             # obj is a instance method
             return timing(obj), True
     if inspect.isfunction(obj) and obj.__code__.co_filename.startswith(ROOT_DIR):
-        if _type is VariableTypes.IN_CLASS:
+        if  _type is VariableTypes.IN_CLASS:
             # obj is a staticmethod
             return staticmethod(obj.__func__), True
         else:
