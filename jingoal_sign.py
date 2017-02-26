@@ -57,6 +57,7 @@ def jingoal_sign(username, password):
         driver.save_screenshot('./haha.png')
         btn_xpath = '//div[contains(@class, "clockbtn")]'
         attend_btn = driver.find_element_by_xpath(btn_xpath)
+        
         attend_btn.click()
     except:
         raise
@@ -98,18 +99,27 @@ def send_self_email(email_address, password, content, username=''):
 if __name__ == '__main__':
     # 脚本每天8:53 / 6:40 运行
     parser = argparse.ArgumentParser(description=u'JinGoal Sign in/out script.')
-    parser.add_argument('username', metavar='<USERNAME>', type=str, help='JinGoal username')
-    parser.add_argument('password', metavar='<PASSWORD>', type=str, help='JinGoal password')
-    parser.add_argument('-e', dest='email', default='', help='error email address')
-    parser.add_argument('-ep', dest='email_pass', default='', help='error email password (必须是授权码)')
+    parser.add_argument('username', metavar='<USERNAME>', type=str, help=u'今目标用户名')
+    parser.add_argument('password', metavar='<PASSWORD>', type=str, help=u'今目标密码')
+    parser.add_argument('-e', dest='email', default='', help=u'错误邮件接受邮箱')
+    parser.add_argument('-ep', dest='email_pass', default='', help=u'接受邮箱的密码(授权码)')
+    parser.add_argument('-r', dest='retry_times', type=int, default=3, help=u'失败重试次数')
     args = parser.parse_args()
     try:
         if today_is_holiday():
             print u'today is holiday'
         else:
-            wait_sec = random.randint(0, 60 * 6)
+            wait_sec = random.randint(0, 60 * 2)
             sleep(wait_sec)
-            jingoal_sign(args.username, args.password)
+            error_times = 0
+            success = False
+            while error_times < args.retry_times and not success:
+                try:
+                    jingoal_sign(args.username, args.password)
+                    success = True
+                except:
+                    error_times += 1
+                    if error_times == args.retry_times: raise
     except:
         import traceback
 
