@@ -1,14 +1,10 @@
 import inspect
-from UserDict import UserDict
 
-from profiling import show_timing_cost, install_importer, activate_timing, timing
+from costom_profiling import show_timing_cost, activate_timing, install_importer
 
-# install_importer('..')
-
-from time import sleep
+install_importer('..')
 
 from async_iter import AsyncIterHandler
-
 
 multitasking = AsyncIterHandler('threading')
 
@@ -41,11 +37,6 @@ class C(object):
 
 
 c = C()
-
-
-print  C.h.__self__
-print inspect.ismethod(C.h)
-print inspect.ismethod(C.x)
 
 activate_timing(locals())
 
