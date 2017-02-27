@@ -1,14 +1,15 @@
 # coding=utf-8
-# TODO(weidwonder): 下一步是优化显示, 把其他线程的根换成新的
+# TODO(weidwonder): 下一步是拆分代码, 加入图形显示
 import datetime as dt
 import imp
 import inspect
 import operator
-import os
 import sys
 from collections import defaultdict
 from functools import wraps
 from threading import local
+
+import os
 
 tree = defaultdict(lambda: tree, children=[])
 
@@ -16,6 +17,7 @@ timing_dict = tree
 
 _thread_locals = local()
 
+stacks = []
 
 timing_started = False
 
@@ -28,8 +30,6 @@ class FuncNode(object):
         # id(fn): [fn, call_times]
         0: [None, 1],
     }
-
-    __root = None
 
     @classmethod
     def register_fn(cls, fn):
@@ -50,9 +50,10 @@ class FuncNode(object):
 
     @classmethod
     def root(cls):
-        if not cls.__root:
-            cls.__root = cls(None)
-        return cls.__root
+        return cls(None)
+
+    def is_root(self):
+        return self.id == 0
 
     def __repr__(self):
         if self.fn is None:
@@ -61,12 +62,17 @@ class FuncNode(object):
 
     __str__ = __repr__
 
+    def __eq__(self, other):
+        return self.fn == other.fn
+
 
 def get_stack():
     """ get current thread user defined call stack.
     """
     if not hasattr(_thread_locals, 'cur_stack'):
-        _thread_locals.cur_stack = [FuncNode.root()]
+        new_stack = [FuncNode.root()]
+        stacks.append(new_stack)
+        _thread_locals.cur_stack = new_stack
     return _thread_locals.cur_stack
 
 
@@ -89,11 +95,12 @@ def timing(func):
         time_cost = end - start
         node.cost = time_cost.total_seconds()
         return rtn
+
     return wrap_func
 
 
-def show_timing_cost(node=FuncNode.root(), deep=None, parent_cost=0):
-    if node == FuncNode.root():
+def _show_timing_cost(node=FuncNode.root(), deep=None, parent_cost=0):
+    if node.is_root():
         node.cost = sum([_.cost for _ in node.children])
 
     # calculate cost percent of parent
@@ -111,14 +118,20 @@ def show_timing_cost(node=FuncNode.root(), deep=None, parent_cost=0):
 
     filename = node.fn.__code__.co_filename if node.fn else ''
     print '%(name)-25s: %(cost_percent)5s %(cost)8s(S) file: %(file)s' % dict(name=getattr(node.fn, '__name__', 'root'),
-                                                               cost_percent=cost_percent, cost=node.cost, file=filename)
+                                                                              cost_percent=cost_percent, cost=node.cost,
+                                                                              file=filename)
     cur_children = sorted(node.children, key=operator.attrgetter('cost'), reverse=True)
     max_index = len(cur_children) - 1
     for i, c in enumerate(cur_children):
         done = i == max_index
         start_char = child_des if done else child_con
         print ''.join([tab_option[_] for _ in deep]) + start_char,
-        show_timing_cost(c, deep=deep + [done], parent_cost=node.cost)
+        _show_timing_cost(c, deep=deep + [done], parent_cost=node.cost)
+
+
+def show_timing_cost():
+    for stack in stacks:
+        _show_timing_cost(stack[0])
 
 
 ROOT_DIR = ''
@@ -204,6 +217,7 @@ class VariableTypes:
     FREE = 1
     IN_CLASS = 2
 
+
 def wrap_timing(obj, _type=VariableTypes.FREE):
     if inspect.isclass(obj):
         for attr in dir(obj):
@@ -227,7 +241,7 @@ def wrap_timing(obj, _type=VariableTypes.FREE):
             # obj is a instance method
             return timing(obj), True
     if inspect.isfunction(obj) and obj.__code__.co_filename.startswith(ROOT_DIR):
-        if  _type is VariableTypes.IN_CLASS:
+        if _type is VariableTypes.IN_CLASS:
             # obj is a staticmethod
             return staticmethod(obj.__func__), True
         else:
