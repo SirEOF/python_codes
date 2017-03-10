@@ -1,6 +1,7 @@
 import inspect
 
 from costom_profiling import show_timing_cost, activate_timing, install_importer
+from django_tools.serializer import jprint
 
 install_importer('..')
 
@@ -20,6 +21,7 @@ class C(object):
     x = y = 1
 
     def g(self):
+        jprint(inspect.stack())
         self.h()
 
     def f(self):
