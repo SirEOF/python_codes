@@ -1,4 +1,8 @@
-import inspect
+from async_iter import AsyncIterHandler
+
+from costom_profiling.profiler import Profiling
+
+multitasking = AsyncIterHandler('threading')
 
 
 def chain(inst):
@@ -17,10 +21,11 @@ class C(object):
     def f(self):
         for i in range(3):
             chain(self)
+        multitasking([(chain, (self, ))] * 3)
 
     @classmethod
     def h(cls):
-        pass
+        print 'h'
 
     @staticmethod
     def x():
@@ -29,4 +34,5 @@ class C(object):
 
 c = C()
 
-c.f()
+with Profiling('../..'):
+    c.f()
