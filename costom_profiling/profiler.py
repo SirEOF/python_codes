@@ -1,11 +1,97 @@
 # coding=utf-8
+import datetime
 import operator
 import sys
-
 import os
+from threading import local
 
-from costom_profiling.wrapper import stacks, Profile
-from settings import SETTINGS
+from .settings import SETTINGS
+
+_thread_locals = local()
+
+stacks = []
+
+current_path = os.path.abspath(os.path.join(__file__, os.path.pardir))
+
+
+class FuncNode(object):
+    """ function node
+    """
+
+    fn_map = {
+        # id(fn): [fn, call_times]
+        0: [None, 1],
+    }
+
+    @classmethod
+    def register_frame(cls, frame):
+        frame_info = cls.fn_map.setdefault(id(frame), [frame, 0])
+        frame_info[1] += 1
+        cls.fn_map[id(frame)] = frame_info
+        return frame_info
+
+    def __init__(self, frame, children=None, cost=0):
+        if frame is not None:
+            frame_info = self.register_frame(frame)
+            self.id = str(id(frame)) + ':' + str(frame_info[1])
+            self.name = frame.f_code.co_name
+        else:
+            self.name = 'root'
+            self.id = 0
+        self.children = children or []
+        self.cost = cost
+        self.frame = frame
+
+        self.start = None
+        self.end = None
+
+    @classmethod
+    def root(cls):
+        return cls(None)
+
+    def is_root(self):
+        return self.id == 0
+
+    def __repr__(self):
+        return self.name + ':' + str(self.cost)
+
+    __str__ = __repr__
+
+    def __eq__(self, other):
+        return self.frame is other.frame
+
+
+def _get_stack():
+    """ get current thread user defined call stack.
+    """
+    if not hasattr(_thread_locals, 'cur_stack'):
+        new_stack = [FuncNode.root()]
+        stacks.append(new_stack)
+        _thread_locals.cur_stack = new_stack
+    return _thread_locals.cur_stack
+
+
+def profiler(frame, event, func):
+    """ profile the func 
+    """
+    frame_filename = frame.f_code.co_filename
+    if (not frame_filename.startswith(SETTINGS['ROOT_DIR']) or frame_filename.startswith(current_path)):
+        return
+    stack = _get_stack()
+    if event in ('call'):
+        node = FuncNode(frame)
+        parent = stack[-1]
+        parent.children.append(node)
+        stack.append(node)
+        node.start = datetime.datetime.now()
+
+    elif event in ('return') and len(stack) > 1:
+        node = stack.pop()
+        node.end = datetime.datetime.now()
+        time_cost = node.end - node.start
+        node.cost = time_cost.total_seconds()
+    else:  # event in ('c_call', 'c_return', 'exception', 'c_exception')
+        pass
 
 
 def _show_timing_cost(node, deep=None, parent_cost=0):
@@ -24,10 +110,9 @@ def _show_timing_cost(node, deep=None, parent_cost=0):
     child_con = '├───'
     child_des = '└───'
 
-    filename = node.fn.__code__.co_filename if node.fn else ''
-    print '%(name)-25s: %(cost_percent)5s %(cost)8s(S) file: %(file)s' % dict(name=getattr(node.fn, '__name__', 'root'),
-                                                                              cost_percent=cost_percent, cost=node.cost,
-                                                                              file=filename)
+    filename = node.frame.f_code.co_filename if node.frame else ''
+    print '%(name)-25s: %(cost_percent)5s %(cost)8s(S) file: %(file)s' % dict(name=node.name, cost_percent=cost_percent,
+                                                                              cost=node.cost, file=filename)
     cur_children = sorted(node.children, key=operator.attrgetter('cost'), reverse=True)
     max_index = len(cur_children) - 1
     for i, c in enumerate(cur_children):
@@ -45,5 +130,21 @@ def show_timing_cost():
 def start_profiling(root_dir='.'):
     ROOT_DIR = os.path.abspath(root_dir)
     SETTINGS['ROOT_DIR'] = ROOT_DIR
-    SETTINGS['PROFILING_START'] = True
-    sys.setprofile(Profile().profiler)
+    sys.setprofile(profiler)
+
+
+class Profiling:
+    """ Profile context manager
+    """
+
+    def __init__(self, path='.'):
+        self.path = path
+
+    def __enter__(self):
+        start_profiling(self.path)
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        sys.setprofile(None)
+        show_timing_cost()
+        if exc_type:
+            raise
