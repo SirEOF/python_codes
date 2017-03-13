@@ -110,9 +110,13 @@ def _show_timing_cost(node, deep=None, parent_cost=0):
     child_con = '├───'
     child_des = '└───'
 
-    filename = node.frame.f_code.co_filename if node.frame else ''
-    print '%(name)-25s: %(cost_percent)5s %(cost)8s(S) file: %(file)s' % dict(name=node.name, cost_percent=cost_percent,
-                                                                              cost=node.cost, file=filename)
+    filename = ''
+    lineno = ''
+    if node.frame:
+        filename = node.frame.f_code.co_filename
+        lineno = node.frame.f_code.co_firstlineno
+    print ('%(name)-25s: %(cost_percent)5s %(cost)8s(S) file: %(file)s:%(lineno)s' 
+           % dict(name=node.name, cost_percent=cost_percent, cost=node.cost, file=filename, lineno=lineno))
     cur_children = sorted(node.children, key=operator.attrgetter('cost'), reverse=True)
     max_index = len(cur_children) - 1
     for i, c in enumerate(cur_children):
