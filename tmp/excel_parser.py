@@ -2,6 +2,8 @@
 from openpyxl.cell import Cell
 from openpyxl.reader.excel import load_workbook
 
+from django_tools.serializer import to_json
+
 
 class TitledSheet(object):
     """ 名称解析excel
@@ -32,13 +34,19 @@ class TitledSheet(object):
 
         def __getitem__(self, item):
             map = getattr(self, self.direction + '_map')
+            anti_map = getattr(self, self.DIRECTIONS[1 - self.direction_index] + '_map')
             if isinstance(item, (list, tuple)):
                 assert len(item) == 2, 'index Error'
-                anti_map = getattr(self, self.DIRECTIONS[1 - self.direction_index] + '_map')
-                coordinate = anti_map.get(item[1], item[1]), map.get(item[0], item[0])
+                coordinate = map.get(item[0], item[0]), anti_map.get(item[1], item[1])
+                if self.direction == 'columns':
+                    coordinate = coordinate[1], coordinate[0]
                 rtn = self.sheet._cells[coordinate]
             else:
-                rtn = self.matrix[map[item]]
+                l = self.matrix[map.get(item, item)]
+                rtn = {}
+                for k, v in anti_map.items():
+                    rtn[k] = l[v - 1]
+                    rtn[v - 1] = l[v - 1]
             if isinstance(rtn, Cell) and self.resolve_cell:
                 return self.resolve_cell(rtn.value)
             return rtn
@@ -103,3 +111,10 @@ if __name__ == '__main__':
     print ','.join(ts.columns[2, u'朋友E车'])
     print ','.join(ts.columns[u'有效接收', 10])
     print ','.join(ts.columns[2, 10])
+    
+    n = ts.columns[2] # 取第2列
+    print n[1].value
+    print n[u'99好车'].value
+    print ts.rows[2] # 取第2行
+    print ts.rows[10, 2]
+    print ','.join(ts.rows[10, 2])
