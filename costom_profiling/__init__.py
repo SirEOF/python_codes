@@ -2,7 +2,7 @@
 
 __version__ = '0.2.0'
 
-from profiler import Profiling
+from profiling import Profiling
 
 __all__ = [
     'Profiling',

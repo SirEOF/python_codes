@@ -1,6 +1,6 @@
 from async_iter import AsyncIterHandler
 
-from costom_profiling.profiler import Profiling
+from costom_profiling import Profiling
 
 multitasking = AsyncIterHandler('threading')
 
