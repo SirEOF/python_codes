@@ -49,9 +49,9 @@ EARLY_STOP_PATIENCE = 10  # 控制early stopping的参数
 
 if __name__ == '__main__':
     sess = tf.InteractiveSession()
-    x = tf.placeholder("float", shape=[None, 96, 96, 1], name='x')
-    y_ = tf.placeholder("float", shape=[None, 30], name='y_')
-    keep_prob = tf.placeholder("float")
+    x = tf.placeholder(tf.float32, shape=[None, 96, 96, 1], name='x')
+    y_ = tf.placeholder(tf.float32, shape=[None, 30], name='y_')
+    keep_prob = tf.placeholder(tf.float32)
 
     y_conv, rmse = model(x, y_, keep_prob)
     train_step = tf.train.AdamOptimizer(1e-3).minimize(rmse)
@@ -84,6 +84,7 @@ if __name__ == '__main__':
             train_step.run(feed_dict={
                 x: X_train[j: j + BATCH_SIZE],
                 y_: y_train[j: j + BATCH_SIZE],
+                keep_prob: 0.5,
             })
 
         validation_loss = rmse.eval(feed_dict={x: X_train, y_: y_train, keep_prob: 1.0})
