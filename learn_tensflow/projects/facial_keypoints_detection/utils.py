@@ -47,3 +47,12 @@ def show_image(img, y=None):
 def save_model(saver, sess, save_path):
     path = saver.save(sess, save_path)
     print('model save in: {0}'.format(path))
+
+def load_model(sess, path):
+    new_saver = tf.train.import_meta_graph(path)
+    new_saver.restore(sess, tf.train.latest_checkpoint('./'))
+    all_vars = tf.get_collection('vars')
+    for v in all_vars:
+        sess.run(v)
+    print(all_vars)
+    return all_vars
