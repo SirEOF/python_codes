@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
+from PIL import Image
 
 
 def weight_variable(shape, name=None):
@@ -48,11 +49,15 @@ def save_model(saver, sess, save_path):
     path = saver.save(sess, save_path)
     print('model save in: {0}'.format(path))
 
+
 def load_model(sess, path):
-    new_saver = tf.train.import_meta_graph(path)
-    new_saver.restore(sess, tf.train.latest_checkpoint('./'))
-    all_vars = tf.get_collection('vars')
-    for v in all_vars:
-        sess.run(v)
-    print(all_vars)
-    return all_vars
+    new_saver = tf.train.Saver()
+    new_saver.restore(sess, path)
+
+
+def load_other_img(path):
+    img = Image.open(path)
+    img = img.resize((96, 96))
+    img = np.asarray(img)
+    grey_img = np.mean(img, axis=2) / 255.
+    return grey_img
