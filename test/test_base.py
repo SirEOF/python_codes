@@ -1,9 +1,6 @@
-import inspect, sys
+from collections import Counter
 
-import pay
+l = sum(([i] * i for i in range(100)), [])
 
-from pay import *
+lc = Counter(l)
 
-print inspect.isclass(sys)
-print dir(pay)
-print dir()
