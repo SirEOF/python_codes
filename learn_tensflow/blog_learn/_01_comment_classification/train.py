@@ -1,20 +1,18 @@
 # python3
 
-import numpy as np
-import tensorflow as tf
 import random
-import pickle
 from collections import Counter
 
-import nltk
+import numpy as np
+import tensorflow as tf
 from nltk.tokenize import word_tokenize
+from nltk.stem import WordNetLemmatizer
 
 """
 'I'm super man'
 tokenize:
 ['I', ''m', 'super','man' ] 
 """
-from nltk.stem import WordNetLemmatizer
 
 """
 词形还原(lemmatizer)，即把一个任何形式的英语单词还原到一般形式，与词根还原不同(stemmer)，后者是抽取一个单词的词根。
@@ -51,7 +49,7 @@ def create_lexicon(pos_file, neg_file):
     # 去掉一些常用词,像the,a and等等，和一些不常用词; 这些词对判断一个评论是正面还是负面没有做任何贡献
     lex = []
     for word in word_count:
-        if word_count[word] < 2000 and word_count[word] > 20:  # 这写死了，好像能用百分比
+        if 2000 > word_count[word] > 20:  # 这写死了，好像能用百分比
             lex.append(word)  # 齐普夫定律-使用Python验证文本的Zipf分布 http://blog.topspeedsnail.com/archives/9546
     return lex
 
