@@ -1,3 +1,0 @@
-SETTINGS = {
-    'ROOT_DIR': '',
-}
