@@ -123,7 +123,9 @@ def string2vector(lex, review):
     :param str review: 评论
     :return np.array: 评论对应的向量
     """
+    # 句子拆分为单词
     words = word_tokenize(review.lower())
+    # 词形还原, 即如过去分词还原为动词原型
     words = map(lemmatizer.lemmatize, words)
 
     features = np.zeros([len(lex)])
