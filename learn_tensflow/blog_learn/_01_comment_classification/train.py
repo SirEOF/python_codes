@@ -12,29 +12,26 @@ def main():
     pos_file = './data/pos.txt'
     neg_file = './data/neg.txt'
     lex = create_lexicon(pos_file=pos_file, neg_file=neg_file)
-    data_set, out = standardize_dataset(pos_file, neg_file, lex)
-    train(data_set, out)
+    data_set = standardize_dataset(pos_file, neg_file, lex)
+    train(data_set)
 
 
-def train(features, out, epochs=100, batch_size=50):
+def train(dataset, epochs=100, batch_size=50):
     """
     训练
-    :param features: 特征向量
-    :param out: 特征结果
-    :param out: 向量对应的结果
+    :param dataset: 数据集[[features, label], ...]
     :param epochs: 迭代次数
     :param batch_size: 批次大小
     :return:
     """
     # 拆分测试集合
-    total = len(features)
+    total = len(dataset)
     test_count = int(0.1 * total)
-    test_features = np.array(features[:test_count])
-    train_features = np.array(features[test_count:])
-    test_out = out[:test_count]
-    train_out = out[test_count:]
+    test_data = dataset[:test_count]
+    train_data = dataset[test_count:]
+    input_num = len(train_data[0][0])
 
-    X = tf.placeholder('float', [None, train_features.shape[1]], name='X')
+    X = tf.placeholder('float', [None, input_num], name='X')
     Y = tf.placeholder('float', name='Y')
     predict, labels = nn_model(X, Y, 2)
     cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=predict, labels=labels))
@@ -44,21 +41,25 @@ def train(features, out, epochs=100, batch_size=50):
         session.run(tf.initialize_all_variables())
         for epoch in range(epochs):
             epoch_loss = 0
-            random.shuffle(train_features)
+            random.shuffle(train_data)
             i = 0
-            while i < len(train_features):
+            X_input = train_data[0, :]
+            Y_input = train_data[1, :]
+            while i < len(train_data):
                 start = i
                 i += batch_size
                 end = i
-                _, c = session.run([optimizer, cost], feed_dict={X: train_features[start:end], Y: train_out[start:end]})
+                _, c = session.run([optimizer, cost], feed_dict={X: X_input[start:end], Y: Y_input[start:end]})
                 epoch_loss += c
 
             print('epoch: %s \t epoch_loss: %s' % (epoch, epoch_loss))
 
+        X_input = test_data[0, :]
+        Y_input = test_data[1, :]
         correct = tf.equal(tf.argmax(predict, 1), tf.argmax(Y, 1))
         accuracy = tf.reduce_mean(tf.cast(correct, 'float'))
-        print('准确率: ', accuracy.eval({X: test_features, Y: test_out}))
-        print('correct: ', correct.eval({X: test_features, Y: test_out}))
+        print('准确率: ', accuracy.eval({X: X_input, Y: Y_input}))
+        print('correct: ', correct.eval({X: X_input, Y: Y_input}))
 
 
 def nn_model(data, labels, out_num, l1_neural_num=1000):
@@ -100,21 +101,18 @@ def standardize_dataset(pos_file, neg_file, lex, save=''):
     :return list: 输入矩阵
     """
     dataset = []
-    out = []
     with open(pos_file, 'r') as f:
         lines = f.readlines()
         for review in lines:
             pos_vector = string2vector(lex, review)
-            dataset.append(pos_vector)
-            out.append([1, 0])
+            dataset.append([pos_vector, [1, 0]])
     with open(neg_file, 'r') as f:
         lines = f.readlines()
         for review in lines:
             neg_vector = string2vector(lex, review)
             dataset.append(neg_vector)
-            out.append([0, 1])
-    # TODO(weidwonder): 保存
-    return dataset, out
+            dataset.append([neg_vector, [0, 1]])
+    return np.array(dataset)
 
 
 def string2vector(lex, review):
