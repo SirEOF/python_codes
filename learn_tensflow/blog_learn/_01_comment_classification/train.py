@@ -1,3 +1,4 @@
+import operator
 import random
 from collections import Counter
 
@@ -16,7 +17,7 @@ def main():
     train(data_set)
 
 
-def train(dataset, epochs=100, batch_size=50):
+def train(dataset, epochs=10, batch_size=50):
     """
     训练
     :param dataset: 数据集[[features, label], ...]
@@ -30,7 +31,6 @@ def train(dataset, epochs=100, batch_size=50):
     test_data = dataset[:test_count]
     train_data = dataset[test_count:]
     input_num = len(train_data[0][0])
-
     X = tf.placeholder('float', [None, input_num], name='X')
     Y = tf.placeholder('float', name='Y')
     predict, labels = nn_model(X, Y, 2)
@@ -43,23 +43,22 @@ def train(dataset, epochs=100, batch_size=50):
             epoch_loss = 0
             random.shuffle(train_data)
             i = 0
-            X_input = train_data[0, :]
-            Y_input = train_data[1, :]
+            X_input = train_data[:, 0]
+            Y_input = train_data[:, 1]
             while i < len(train_data):
                 start = i
                 i += batch_size
                 end = i
-                _, c = session.run([optimizer, cost], feed_dict={X: X_input[start:end], Y: Y_input[start:end]})
+                _, c = session.run([optimizer, cost], feed_dict={X: list(X_input[start:end]), Y: list(Y_input[start:end])})
                 epoch_loss += c
 
             print('epoch: %s \t epoch_loss: %s' % (epoch, epoch_loss))
 
-        X_input = test_data[0, :]
-        Y_input = test_data[1, :]
+        X_input = test_data[:, 0]
+        Y_input = test_data[:, 1]
         correct = tf.equal(tf.argmax(predict, 1), tf.argmax(Y, 1))
         accuracy = tf.reduce_mean(tf.cast(correct, 'float'))
-        print('准确率: ', accuracy.eval({X: X_input, Y: Y_input}))
-        print('correct: ', correct.eval({X: X_input, Y: Y_input}))
+        print('准确率: ', accuracy.eval({X: list(X_input), Y: list(Y_input)}))
 
 
 def nn_model(data, labels, out_num, l1_neural_num=1000):
@@ -110,7 +109,6 @@ def standardize_dataset(pos_file, neg_file, lex, save=''):
         lines = f.readlines()
         for review in lines:
             neg_vector = string2vector(lex, review)
-            dataset.append(neg_vector)
             dataset.append([neg_vector, [0, 1]])
     return np.array(dataset)
 
@@ -127,7 +125,7 @@ def string2vector(lex, review):
     # 词形还原, 即如过去分词还原为动词原型
     words = map(lemmatizer.lemmatize, words)
 
-    features = np.zeros([len(lex)])
+    features = [0] * len(lex)
     for word in words:
         pos = lex.get(word)
         if pos is None:
@@ -146,15 +144,15 @@ def create_lexicon(pos_file, neg_file):
     pos_words = process_file(pos_file)
     neg_words = process_file(neg_file)
     lex = pos_words + neg_words
-    total_count = len(lex)
 
     word_count = Counter(lex)
 
-    # 只取出现频率在百分之十到百分之五十的单词
-    low_limit = total_count * 0.1
-    high_limit = total_count * 0.5
+    low_limit = 0.3
+    high_limit = 0.9
 
-    lex = [w for w, c in word_count.items() if low_limit < c < high_limit]
+    words = [_[0] for _ in sorted(word_count.items(), key=operator.itemgetter(1))]
+    total_count = len(word_count)
+    lex = words[int(low_limit * total_count): int(high_limit * total_count)]
     return {word: pos for pos, word in enumerate(lex)}
 
 

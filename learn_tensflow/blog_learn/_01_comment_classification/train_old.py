@@ -18,8 +18,8 @@ tokenize:
 词形还原(lemmatizer)，即把一个任何形式的英语单词还原到一般形式，与词根还原不同(stemmer)，后者是抽取一个单词的词根。
 """
 
-pos_file = 'pos.txt'
-neg_file = 'neg.txt'
+pos_file = './data/pos.txt'
+neg_file = './data/neg.txt'
 
 
 # 创建词汇表
@@ -151,7 +151,7 @@ Y = tf.placeholder('float')
 # 使用数据训练神经网络
 def train_neural_network(X, Y):
     predict = neural_network(X)
-    cost_func = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(predict, Y))
+    cost_func = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=predict, labels=Y))
     optimizer = tf.train.AdamOptimizer().minimize(cost_func)  # learning rate 默认 0.001
 
     epochs = 13
