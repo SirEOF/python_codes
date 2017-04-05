@@ -1,11 +1,11 @@
 import operator
-import random
 from collections import Counter
 
 import numpy as np
 import tensorflow as tf
 from nltk import word_tokenize, WordNetLemmatizer
 
+np.set_printoptions(threshold=np.nan)
 lemmatizer = WordNetLemmatizer()
 
 
@@ -13,19 +13,20 @@ def main():
     pos_file = './data/pos.txt'
     neg_file = './data/neg.txt'
     lex = create_lexicon(pos_file=pos_file, neg_file=neg_file)
-    data_set = standardize_dataset(pos_file, neg_file, lex)
-    train(data_set)
+    dataset = standardize_dataset(pos_file, neg_file, lex)
+    train(dataset)
 
 
-def train(dataset, epochs=10, batch_size=50):
+def train(dataset, epochs=20, batch_size=50):
     """
     训练
-    :param list dataset: 数据集[[features, label], ...]
+    :param np.array dataset: 数据集[[features, label], ...]
     :param int epochs: 迭代次数
     :param int batch_size: 批次大小
     """
     # 拆分测试集合
     total = len(dataset)
+    np.random.shuffle(dataset)  # 注意, 对array进行shuffle一定要用np.random.shuffle, 用random.shuffle是不行的
     test_count = int(0.1 * total)
     test_data = dataset[:test_count]
     train_data = dataset[test_count:]
@@ -40,7 +41,7 @@ def train(dataset, epochs=10, batch_size=50):
         session.run(tf.initialize_all_variables())
         for epoch in range(epochs):
             epoch_loss = 0
-            random.shuffle(train_data)
+            np.random.shuffle(train_data)
             i = 0
             X_input = train_data[:, 0]
             Y_input = train_data[:, 1]
@@ -48,14 +49,17 @@ def train(dataset, epochs=10, batch_size=50):
                 start = i
                 i += batch_size
                 end = i
-                _, c = session.run([optimizer, cost], feed_dict={X: list(X_input[start:end]), Y: list(Y_input[start:end])})
+                _, c = session.run([optimizer, cost],
+                                   feed_dict={X: list(X_input[start:end]), Y: list(Y_input[start:end])})
                 epoch_loss += c
 
             print('epoch: %s \t epoch_loss: %s' % (epoch, epoch_loss))
 
         X_input = test_data[:, 0]
         Y_input = test_data[:, 1]
-        correct = tf.equal(tf.argmax(predict, 1), tf.argmax(Y, 1))
+        predict_ = tf.argmax(predict, 1)
+        labels = tf.argmax(Y, 1)
+        correct = tf.equal(predict_, labels)
         accuracy = tf.reduce_mean(tf.cast(correct, 'float'))
         print('准确率: ', accuracy.eval({X: list(X_input), Y: list(Y_input)}))
 
@@ -147,8 +151,8 @@ def create_lexicon(pos_file, neg_file):
 
     word_count = Counter(lex)
 
-    low_limit = 0.3
-    high_limit = 0.9
+    low_limit = 0.94  # 大部分没吊用
+    high_limit = 0.9991
 
     words = [_[0] for _ in sorted(word_count.items(), key=operator.itemgetter(1))]
     total_count = len(word_count)

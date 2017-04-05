@@ -179,9 +179,13 @@ def train_neural_network(X, Y):
 
         text_x = test_dataset[:, 0]
         text_y = test_dataset[:, 1]
-        correct = tf.equal(tf.argmax(predict, 1), tf.argmax(Y, 1))
+        predict = tf.argmax(predict, 1)
+        labels = tf.argmax(Y, 1)
+        correct = tf.equal(predict, labels)
         accuracy = tf.reduce_mean(tf.cast(correct, 'float'))
         print('准确率: ', accuracy.eval({X: list(text_x), Y: list(text_y)}))
+        print('predict: ', predict.eval({X: list(text_x), Y: list(text_y)}))
+        print('labels: ', labels.eval({X: list(text_x), Y: list(text_y)}))
 
 
 train_neural_network(X, Y)
