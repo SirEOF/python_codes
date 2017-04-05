@@ -20,10 +20,9 @@ def main():
 def train(dataset, epochs=10, batch_size=50):
     """
     训练
-    :param dataset: 数据集[[features, label], ...]
-    :param epochs: 迭代次数
-    :param batch_size: 批次大小
-    :return:
+    :param list dataset: 数据集[[features, label], ...]
+    :param int epochs: 迭代次数
+    :param int batch_size: 批次大小
     """
     # 拆分测试集合
     total = len(dataset)
@@ -68,6 +67,7 @@ def nn_model(data, labels, out_num, l1_neural_num=1000):
         第一层(隐藏层)体现词与词之间体现的特征
         第二层(输出层)体现这些特征对于正负态度之间的贡献度
     :param list, np.array data: 输入数据
+    :param list labels: 标签
     :param int out_num: 输出数量
     :param int l1_neural_num: 第一层的神经元数量
     :return:
