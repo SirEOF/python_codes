@@ -9,8 +9,8 @@ lemmatizer = WordNetLemmatizer()
 
 
 def main():
-    pos_file = 'pos.txt'
-    neg_file = 'neg.txt'
+    pos_file = './data/pos.txt'
+    neg_file = './data/neg.txt'
     lex = create_lexicon(pos_file=pos_file, neg_file=neg_file)
     data_set, out = standardize_dataset(pos_file, neg_file, lex)
     train(data_set, out)
@@ -29,15 +29,15 @@ def train(features, out, epochs=100, batch_size=50):
     # 拆分测试集合
     total = len(features)
     test_count = int(0.1 * total)
-    test_features = features[:test_count]
-    train_features = features[test_count:]
+    test_features = np.array(features[:test_count])
+    train_features = np.array(features[test_count:])
     test_out = out[:test_count]
     train_out = out[test_count:]
 
     X = tf.placeholder('float', [None, train_features.shape[1]], name='X')
     Y = tf.placeholder('float', name='Y')
-    predict = nn_model(X, 2)
-    cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(predict, train_out))
+    predict, labels = nn_model(X, Y, 2)
+    cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=predict, labels=labels))
     optimizer = tf.train.AdamOptimizer().minimize(cost)
 
     with tf.Session() as session:
@@ -58,9 +58,10 @@ def train(features, out, epochs=100, batch_size=50):
         correct = tf.equal(tf.argmax(predict, 1), tf.argmax(Y, 1))
         accuracy = tf.reduce_mean(tf.cast(correct, 'float'))
         print('准确率: ', accuracy.eval({X: test_features, Y: test_out}))
+        print('correct: ', correct.eval({X: test_features, Y: test_out}))
 
 
-def nn_model(data, out_num, l1_neural_num=1000):
+def nn_model(data, labels, out_num, l1_neural_num=1000):
     """
     神经网络模型
         这里使用两层主要是:
@@ -73,7 +74,7 @@ def nn_model(data, out_num, l1_neural_num=1000):
     """
     input_shape = data.shape
     l1_fc = {
-        'W': tf.Variable(tf.random_normal([input_shape[1], l1_neural_num]), name='l1_fc_W'),
+        'W': tf.Variable(tf.random_normal([input_shape[1].value, l1_neural_num]), name='l1_fc_W'),
         'b': tf.Variable(tf.random_normal([l1_neural_num]), name='l1_fc_b'),
     }
 
@@ -86,7 +87,7 @@ def nn_model(data, out_num, l1_neural_num=1000):
     l1_relu_out = tf.nn.relu(l1_fc_out, name='l1_relu_out')
 
     out_fc_out = tf.add(tf.matmul(l1_relu_out, out_fc['W']), out_fc['b'], name='out_fc_out')
-    return out_fc_out
+    return out_fc_out, labels
 
 
 def standardize_dataset(pos_file, neg_file, lex, save=''):
