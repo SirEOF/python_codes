@@ -31,3 +31,10 @@ nltk.download()
 那么问题出在哪呢？
 
 准确率低主要是因为数据量太小，同样的模型，如果使用超大数据训练，准确率会有显著的提升。
+
+
+# 总结
+
+在整理数据的时候, 总是需要把features和labels放在同一个数组里边, 因为后续需要进行shuffle.
+第二是array的shuffle不能使用random包里边的shuffle, 而是需要使用numpy.random包里边的shuffle
+第三是feed的数据不能是array, 必须是list
