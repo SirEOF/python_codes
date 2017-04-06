@@ -65,3 +65,6 @@ target/
 \.[^\.]*
 data
 DATA
+learn_tensflow/MNIST_data/
+local_cache.py
+nohup.out

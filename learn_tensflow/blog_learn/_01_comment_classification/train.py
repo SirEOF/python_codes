@@ -31,6 +31,7 @@ def train(dataset, epochs=20, batch_size=50):
     test_data = dataset[:test_count]
     train_data = dataset[test_count:]
     input_num = len(train_data[0][0])
+    # TODO(weidwonder): 这里X使用稀疏矩阵
     X = tf.placeholder('float', [None, input_num], name='X')
     Y = tf.placeholder('float', name='Y')
     predict, labels = nn_model(X, Y, 2)

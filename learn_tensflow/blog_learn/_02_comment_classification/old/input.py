@@ -44,6 +44,7 @@ def create_lexicon(train_file):
         try:
             count_word = {}  # 统计单词出现次数
             for line in f:
+                tweet = line.split(':%:%:%:')[1]
                 words = word_tokenize(line.lower())
                 for word in words:
                     word = lemmatizer.lemmatize(word)
@@ -66,32 +67,33 @@ lex = create_lexicon('training.csv')
 with open('lexcion.pickle', 'wb') as f:
     pickle.dump(lex, f)
 
+"""
+# 把字符串转为向量
+def string_to_vector(input_file, output_file, lex):
+	output_f = open(output_file, 'w')
+	lemmatizer = WordNetLemmatizer()
+	with open(input_file, buffering=10000, encoding='latin-1') as f:
+		for line in f:
+			label = line.split(':%:%:%:')[0]
+			tweet = line.split(':%:%:%:')[1]
+			words = word_tokenize(tweet.lower())
+			words = [lemmatizer.lemmatize(word) for word in words]
 
-# # 把字符串转为向量
-# def string_to_vector(input_file, output_file, lex):
-#     output_f = open(output_file, 'w')
-#     lemmatizer = WordNetLemmatizer()
-#     with open(input_file, buffering=10000, encoding='latin-1') as f:
-#         for line in f:
-#             label = line.split(':%:%:%:')[0]
-#             tweet = line.split(':%:%:%:')[1]
-#             words = word_tokenize(tweet.lower())
-#             words = [lemmatizer.lemmatize(word) for word in words]
-# 
-#             features = np.zeros(len(lex))
-#             for word in words:
-#                 if word in lex:
-#                     features[lex.index(word)] = 1  # 一个句子中某个词可能出现两次,可以用+=1，其实区别不大
-# 
-#             features = list(features)
-#             output_f.write(str(label) + ":" + str(features) + '\n')
-#     output_f.close()
-# 
-# 
-# f = open('lexcion.pickle', 'rb')
-# lex = pickle.load(f)
-# f.close()
-# 
-# # lexcion词汇表大小112k,training.vec大约112k*1600000  170G  太大，只能边转边训练了
-# # string_to_vector('training.csv', 'training.vec', lex)
-# # string_to_vector('tesing.csv', 'tesing.vec', lex)
+			features = np.zeros(len(lex))
+			for word in words:
+				if word in lex:
+					features[lex.index(word)] = 1  # 一个句子中某个词可能出现两次,可以用+=1，其实区别不大
+
+			features = list(features)
+			output_f.write(str(label) + ":" + str(features) + '\n')
+	output_f.close()
+
+
+f = open('lexcion.pickle', 'rb')
+lex = pickle.load(f)
+f.close()
+
+# lexcion词汇表大小112k,training.vec大约112k*1600000  170G  太大，只能边转边训练了
+# string_to_vector('training.csv', 'training.vec', lex)
+# string_to_vector('tesing.csv', 'tesing.vec', lex)
+"""

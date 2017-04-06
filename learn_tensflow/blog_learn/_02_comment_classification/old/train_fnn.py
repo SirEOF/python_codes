@@ -1,10 +1,9 @@
 import os
-import random
-import tensorflow as tf
 import pickle
+import random
 import numpy as np
-from nltk.tokenize import word_tokenize
-from nltk.stem import WordNetLemmatizer
+import tensorflow as tf
+from nltk import WordNetLemmatizer, word_tokenize
 
 f = open('lexcion.pickle', 'rb')
 lex = pickle.load(f)
