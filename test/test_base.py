@@ -1,9 +1,2 @@
-import inspect, sys
-
-import pay
-
-from pay import *
-
-print inspect.isclass(sys)
-print dir(pay)
-print dir()
+*_ ,y = 1, 3, 4
+print(_, y)
