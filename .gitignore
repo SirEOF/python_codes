@@ -62,7 +62,6 @@ target/
 
 # Data files
 *.gz
-\.[^\.]*
 data
 DATA
 learn_tensflow/MNIST_data/
