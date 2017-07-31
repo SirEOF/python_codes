@@ -1,3 +1,4 @@
+# coding=utf-8
 import random
 from collections import deque
 
@@ -155,7 +156,7 @@ def train_neural_network(input_image):
             action_t = predict_action.eval(feed_dict={input_image: [input_image_data]})[0]
 
             argmax_t = np.zeros([output], dtype=np.int)
-            if (random.random() <= INITIAL_EPSILON):
+            if random.random() <= INITIAL_EPSILON:
                 maxIndex = random.randrange(output)
             else:
                 maxIndex = np.argmax(action_t)
@@ -163,10 +164,6 @@ def train_neural_network(input_image):
             if epsilon > FINAL_EPSILON:
                 epsilon -= (INITIAL_EPSILON - FINAL_EPSILON) / EXPLORE
 
-                # for event in pygame.event.get():  macOS需要事件循环，否则白屏
-            #	if event.type == QUIT:
-            #		pygame.quit()
-            #		sys.exit()
             reward, image = game.step(list(argmax_t))
 
             image = cv2.cvtColor(cv2.resize(image, (100, 80)), cv2.COLOR_BGR2GRAY)

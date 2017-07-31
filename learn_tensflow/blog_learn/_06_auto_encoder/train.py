@@ -1,3 +1,4 @@
+# coding=utf-8
 import numpy as np
 import pandas as pd
 import tensorflow as tf  # http://blog.topspeedsnail.com/archives/10399

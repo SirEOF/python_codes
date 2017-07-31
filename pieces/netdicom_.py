@@ -3,13 +3,21 @@
 import copy
 import warnings
 
+import time
+from netdicom import StorageSOPClass
+
 with warnings.catch_warnings():
     warnings.filterwarnings('ignore', category=UserWarning)
     from dicom.UID import UID
 
 import netdicom
 import netdicom.ACSEprovider
-from netdicom.DULprovider import DULServiceProvider, MaximumLengthParameters, AsynchronousOperationsWindowSubItem
+import netdicom.SOPclass
+import netdicom.applicationentity
+import netdicom.DIMSEprovider
+from netdicom.DULprovider import DULServiceProvider, MaximumLengthParameters, AsynchronousOperationsWindowSubItem, \
+    SCP_SCU_RoleSelectionParameters
+from netdicom.SOPclass import *
 
 
 def Accept(self, client_socket=None, AcceptablePresentationContexts=None, Wait=True):
@@ -73,6 +81,86 @@ def ToSubItem(self):
     return tmp
 
 
+class XRayImageStorageSOPClass(StorageSOPClass):
+    UID = "1.2.840.10008.5.1.4.1.1.1.1"
+
+
+def run(self):
+    self.ACSE = netdicom.ACSEprovider.ACSEServiceProvider(self.DUL)
+    self.DIMSE = netdicom.DIMSEprovider.DIMSEServiceProvider(self.DUL)
+    if self.Mode == 'Acceptor':
+        self.ACSE.Accept(self.ClientSocket,
+                         self.AE.AcceptablePresentationContexts)
+        # call back
+        self.AE.OnAssociateRequest(self)
+        # build list of SOPClasses supported
+        self.SOPClassesAsSCP = []
+        for ss in self.ACSE.AcceptedPresentationContexts:
+            self.SOPClassesAsSCP.append((ss[0], \
+                                         netdicom.SOPclass.UID2SOPClass(ss[1]), ss[2]))
+
+    else:  # Requestor mode
+        # build role extended negociation
+        ext = []
+        for ii in self.AE.AcceptablePresentationContexts:
+            tmp = SCP_SCU_RoleSelectionParameters()
+            tmp.SOPClassUID = ii[0]
+            tmp.SCURole = 0
+            tmp.SCPRole = 1
+            ext.append(tmp)
+
+        ans = self.ACSE.Request(self.AE.LocalAE, self.RemoteAE,
+                                self.AE.MaxPDULength,
+                                self.AE.PresentationContextDefinitionList, \
+                                userspdu=ext)
+        if ans:
+            # call back
+            if 'OnAssociateResponse' in self.AE.__dict__:
+                self.AE.OnAssociateResponse(ans)
+        else:
+            self.AssociationRefused = True
+            self.DUL.Kill()
+            return
+        self.SOPClassesAsSCU = []
+        for ss in self.ACSE.AcceptedPresentationContexts:
+            self.SOPClassesAsSCU.append((ss[0],
+                                         netdicom.SOPclass.UID2SOPClass(ss[1]), ss[2]))
+
+    self.AssociationEstablished = True
+
+    # association established. Listening on local and remote interfaces
+    while not self._Kill:
+        time.sleep(0.001)
+        # look for incoming DIMSE message
+        if self.Mode == 'Acceptor':
+            dimsemsg, pcid = self.DIMSE.Receive(Wait=False, Timeout=None)
+            if dimsemsg:
+                # dimse message received
+                uid = dimsemsg.AffectedSOPClassUID
+                obj = netdicom.SOPclass.UID2SOPClass(uid.value)()
+                try:
+                    obj.pcid, obj.sopclass, obj.transfersyntax = \
+                        [x for x in self.SOPClassesAsSCP \
+                         if x[0] == pcid][0]
+                except IndexError:
+                    raise "SOP Class %s not supported as SCP" % uid
+                obj.maxpdulength = self.ACSE.MaxPDULength
+                obj.DIMSE = self.DIMSE
+                obj.ACSE = self.ACSE
+                obj.AE = self.AE
+
+                # run SCP
+                obj.SCP(dimsemsg)
+
+            # check for release request
+            if self.ACSE.CheckRelease():
+                self.Kill()
+
+            # check for abort
+            if self.ACSE.CheckAbort():
+                self.Kill()
+
+
 def monkey_patch_netdicom():
     """
     修正:
@@ -81,3 +169,6 @@ def monkey_patch_netdicom():
     """
     netdicom.ACSEprovider.ACSEServiceProvider.Accept = Accept
     AsynchronousOperationsWindowSubItem.ToSubItem = ToSubItem
+    netdicom.applicationentity.Association.run = run
+    netdicom.SOPclass.d.append('XRayImageStorageSOPClass')
+    netdicom.SOPclass.XRayImageStorageSOPClass = XRayImageStorageSOPClass
