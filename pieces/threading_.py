@@ -1,7 +1,7 @@
 # coding=utf-8
 from Queue import Queue
 from functools import wraps
-import threading_
+import threading
 
 from concurrent.futures import ThreadPoolExecutor
 
@@ -14,7 +14,7 @@ def async(func):
 
     @wraps(func)
     def async_func(*args, **kwargs):
-        thread = threading_.Thread(
+        thread = threading.Thread(
             target=func,
             args=args,
             kwargs=kwargs
@@ -32,7 +32,7 @@ def asyncd(func):
 
     @wraps(func)
     def async_func(*args, **kwargs):
-        thread = threading_.Thread(
+        thread = threading.Thread(
             target=func,
             args=args,
             kwargs=kwargs
@@ -145,7 +145,7 @@ class NamedLock(object):
     """
 
     num_locks = 64
-    locks = [threading_.Condition() for i in xrange(num_locks)]
+    locks = [threading.Condition() for i in xrange(num_locks)]
 
     def __init__(self, name):
         self.name = name
@@ -169,7 +169,7 @@ class NamedLock(object):
 class ThreadPool:
     """
     Customized thread pool
-
+    
     copy from https://github.com/weidwonder/async-iter/blob/master/async_iter/async_iter.py
     """
 
@@ -226,7 +226,7 @@ class ThreadPool:
     def execute_task(self, task):
         """ execute task by start new thread.
         """
-        t = threading_.Thread(target=task)
+        t = threading.Thread(target=task)
         t.start()
 
     def join(self):

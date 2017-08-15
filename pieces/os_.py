@@ -1,7 +1,4 @@
 # coding=utf-8
-"""
-系统工具
-"""
 import errno
 import os
 
@@ -37,3 +34,8 @@ def purge_empty_dir(path, depth=0):
         purge_empty_dir(c, depth + 1)
     if not os.listdir(path) and depth > 0:
         os.rmdir(path)
+
+
+def require_sudo():
+    if os.getuid() != 0:
+        raise OSError('需要超级用户权限')
