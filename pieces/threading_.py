@@ -6,6 +6,23 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 
 
+def setup_thread_error_handler(handler):
+    """
+    通过monkey_patch的形式设置多线程的处理器
+    :param handler: 
+    """
+    run = threading.Thread.run
+
+    def wrapped_run(thread):
+        try:
+            run(thread)
+        except Exception:
+            handler()
+            raise
+
+    threading.Thread.run = wrapped_run
+
+
 def async(func):
     """ 将函数方法转换为异步
     :param func: 函数/方法
@@ -169,7 +186,7 @@ class NamedLock(object):
 class ThreadPool:
     """
     Customized thread pool
-    
+
     copy from https://github.com/weidwonder/async-iter/blob/master/async_iter/async_iter.py
     """
 

@@ -83,7 +83,8 @@ class DictObject(object):
         if self.__has_default:
             return self.__default
         else:
-            raise AttributeError("'{name}' object has no attribute '{item}'".format(name=self.__class__.__name__, item=item))
+            raise AttributeError(
+                "'{name}' object has no attribute '{item}'".format(name=self.__class__.__name__, item=item))
 
     def __setattr__(self, key, value):
         self.__dict__[key] = value
@@ -144,3 +145,11 @@ class NoneDuplicatedObject(object):
         """ 获取选项 
         """
         return cls.__dict__['__choices']
+
+
+def chunks(l, n):
+    """
+    Yield successive n-sized chunks from l.
+    """
+    for i in range(0, len(l), n):
+        yield l[i:i + n]
