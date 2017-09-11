@@ -60,6 +60,38 @@ def asyncd(func):
     return async_func
 
 
+def serialize(func):
+    """
+    使函数串行化, 任何时候, 被装饰函数不得同时运行
+    :param func: 
+    :return: func
+    """
+
+    @wraps(func)
+    def serialized_func(*args, **kws):
+        with NamedLock(id(func)):
+            return func(*args, **kws)
+
+    return serialized_func
+
+
+def django_mysql_serialize(func):
+    """
+    使函数串行化, 任何时候, 被装饰函数不得同时运行 
+    使用django-mysql中的Lock, 可以跨线程,跨机器实现锁
+    :param func: 
+    :return: func
+    """
+    from django_mysql.locks import Lock
+
+    @wraps(func)
+    def serialized_func(*args, **kws):
+        with Lock(str(id(func))):
+            return func(*args, **kws)
+
+    return serialized_func
+
+
 def pooled_submit_not_block(num, default_rtn=None):
     """
     线程池并行装饰器 (提交无阻塞)
